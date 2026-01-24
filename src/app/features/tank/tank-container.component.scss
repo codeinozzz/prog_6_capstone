@@ -1,0 +1,17 @@
+.movement-container {
+  padding: 24px;
+}
+
+.status {
+  font-weight: 600;
+  color: #c62828;
+}
+
+.status.connected {
+  color: #2e7d32;
+}
+
+.hint {
+  margin-top: 8px;
+  color: #555;
+}
