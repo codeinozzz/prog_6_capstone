@@ -1,0 +1,29 @@
+.waiting-room {
+  padding: 24px;
+}
+
+.waiting-room__title {
+  margin: 0 0 8px;
+  font-size: 24px;
+}
+
+.waiting-room__count {
+  margin: 0 0 16px;
+  color: #444;
+}
+
+.waiting-room__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.waiting-room__item {
+  padding: 6px 0;
+  border-bottom: 1px solid #e2e2e2;
+}
+
+.waiting-room__id {
+  color: #666;
+  font-size: 12px;
+}

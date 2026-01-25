@@ -1,0 +1,10 @@
+<section class="waiting-room">
+  <h1 class="waiting-room__title">Waiting Room</h1>
+  <p class="waiting-room__count">Jugadores conectados: {{ players().length }}</p>
+
+  <ul class="waiting-room__list">
+    <li *ngFor="let player of players()" class="waiting-room__item">
+      {{ player.name }} <span class="waiting-room__id">({{ player.id }})</span>
+    </li>
+  </ul>
+</section>
