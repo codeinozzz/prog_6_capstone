@@ -1,8 +1,8 @@
 import { Component, OnInit, OnDestroy, HostListener, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { Player } from '../../core/models/player.model';
 import { MovementEvent } from '../../core/models/movement.model';
 import { PlayersStore } from '../../store/players/players.store';
+import { GameCanvasComponent } from '../game-canvas/game-canvas.component';
 
 @Component({
   selector: 'app-tank-container',

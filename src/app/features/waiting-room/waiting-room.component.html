@@ -7,4 +7,24 @@
       {{ player.name }} <span class="waiting-room__id">({{ player.id }})</span>
     </li>
   </ul>
+
+  <div class="waiting-room__chat">
+    <h2 class="waiting-room__chat-title">Chat</h2>
+    <div class="waiting-room__chat-messages">
+      <p *ngFor="let message of messages" class="waiting-room__chat-message">
+        <strong>{{ message.sender }}:</strong> {{ message.text }}
+      </p>
+    </div>
+
+    <form class="waiting-room__chat-form" (ngSubmit)="sendMessage()">
+      <input
+        class="waiting-room__chat-input"
+        name="message"
+        [(ngModel)]="messageText"
+        placeholder="Escribe un mensaje..."
+        autocomplete="off"
+      />
+      <button class="waiting-room__chat-button" type="submit">Enviar</button>
+    </form>
+  </div>
 </section>
