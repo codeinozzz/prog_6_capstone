@@ -1,0 +1,31 @@
+<div class="player-hud">
+  <div class="hud-item">
+    <span class="hud-label">health:</span>
+    <span class="hud-value">{{ health() }}</span>
+  </div>
+
+  <div class="hud-item">
+    <span class="hud-label">score:</span>
+    <span class="hud-value">{{ score() }}</span>
+  </div>
+
+  <div class="hud-item">
+    <span class="hud-label">ammunition:</span>
+    <span class="hud-value">{{ ammunition() }}</span>
+  </div>
+
+  <div class="hud-item">
+    <span class="hud-label">status:</span>
+    <span class="hud-value">{{ playerStatus()}}</span>
+  </div>
+</div>
+
+<div class="status-indicator">
+  @if (playerStatus() === 'alive') {
+    <span class="status-alive">Estado: Vivo</span>
+  } @else if (playerStatus() === 'injured') {
+    <span class="status-injured">Estado: Herido</span>
+  } @else {
+    <span class="status-dead">Estado: Muerto</span>
+  }
+</div>
