@@ -6,7 +6,7 @@ import { GameService } from '../../core/services/game.service';
 import { Player } from '../../core/models/player.model';
 
 describe('PlayersStore', () => {
-  let store: PlayersStore;
+  let store: InstanceType<typeof PlayersStore>;
 
   beforeEach(() => {
     const gameServiceStub = {
