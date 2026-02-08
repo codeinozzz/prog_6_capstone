@@ -3,6 +3,7 @@ import { signalStore, withComputed, withMethods, withState, patchState } from '@
 import { Subscription } from 'rxjs';
 import { Player } from '../../core/models/player.model';
 import { MovementEvent } from '../../core/models/movement.model';
+import { ChatMessage } from '../../core/models/chat-message.model';
 import { GameService } from '../../core/services/game.service';
 
 export interface PlayersState {
@@ -10,13 +11,15 @@ export interface PlayersState {
   localPlayerId: string | null;
   isConnected: boolean;
   error: string | null;
+  chatMessages: ChatMessage[];
 }
 
 const initialState: PlayersState = {
   players: {},
   localPlayerId: null,
   isConnected: false,
-  error: null
+  error: null,
+  chatMessages: []
 };
 
 export const PlayersStore = signalStore(
@@ -27,18 +30,22 @@ export const PlayersStore = signalStore(
     localPlayer: computed(() => {
       const playerId = store.localPlayerId();
       return playerId ? store.players()[playerId] ?? null : null;
+    }),
+    remotePlayers: computed(() => {
+      const localId = store.localPlayerId();
+      return Object.values(store.players()).filter(p => p.id !== localId);
     })
   })),
   withMethods((store, gameService = inject(GameService)) => {
-    let movementSubscription: Subscription | null = null;
-    let connectionSubscription: Subscription | null = null;
+    let movementSub: Subscription | null = null;
+    let connectionSub: Subscription | null = null;
+    let chatSub: Subscription | null = null;
+    let playerJoinedSub: Subscription | null = null;
+    let playerLeftSub: Subscription | null = null;
 
     const addPlayer = (player: Player): void => {
       patchState(store, {
-        players: {
-          ...store.players(),
-          [player.id]: player
-        }
+        players: { ...store.players(), [player.id]: player }
       });
     };
 
@@ -72,12 +79,7 @@ export const PlayersStore = signalStore(
       patchState(store, {
         players: {
           ...store.players(),
-          [playerId]: {
-            ...player,
-            position,
-            direction,
-            lastUpdated: Date.now()
-          }
+          [playerId]: { ...player, position, direction, lastUpdated: Date.now() }
         }
       });
     };
@@ -85,8 +87,8 @@ export const PlayersStore = signalStore(
     const connect = (): void => {
       if (store.isConnected()) return;
 
-      connectionSubscription?.unsubscribe();
-      connectionSubscription = gameService.connect().subscribe({
+      connectionSub?.unsubscribe();
+      connectionSub = gameService.connect().subscribe({
         next: (playerId) => {
           patchState(store, {
             isConnected: true,
@@ -102,6 +104,8 @@ export const PlayersStore = signalStore(
             isLocal: true,
             lastUpdated: Date.now()
           });
+
+          gameService.joinGame(playerId, 'Local Player');
         },
         error: (error: Error) => {
           patchState(store, {
@@ -111,17 +115,49 @@ export const PlayersStore = signalStore(
         }
       });
 
-      movementSubscription?.unsubscribe();
-      movementSubscription = gameService.onPlayerMove().subscribe(({ playerId, movement }) => {
+      movementSub?.unsubscribe();
+      movementSub = gameService.onPlayerMove().subscribe(({ playerId, movement }) => {
         updatePlayerPosition(playerId, movement.position, movement.direction);
+      });
+
+      chatSub?.unsubscribe();
+      chatSub = gameService.onChatMessage().subscribe((message) => {
+        patchState(store, {
+          chatMessages: [...store.chatMessages(), message]
+        });
+      });
+
+      playerJoinedSub?.unsubscribe();
+      playerJoinedSub = gameService.onPlayerJoined().subscribe(({ playerId, playerName }) => {
+        if (playerId !== store.localPlayerId()) {
+          addPlayer({
+            id: playerId,
+            name: playerName,
+            position: { x: 100, y: 100 },
+            direction: 'up',
+            isLocal: false,
+            lastUpdated: Date.now()
+          });
+        }
+      });
+
+      playerLeftSub?.unsubscribe();
+      playerLeftSub = gameService.onPlayerLeft().subscribe((connectionId) => {
+        removePlayer(connectionId);
       });
     };
 
     const disconnect = (): void => {
-      movementSubscription?.unsubscribe();
-      connectionSubscription?.unsubscribe();
-      movementSubscription = null;
-      connectionSubscription = null;
+      movementSub?.unsubscribe();
+      connectionSub?.unsubscribe();
+      chatSub?.unsubscribe();
+      playerJoinedSub?.unsubscribe();
+      playerLeftSub?.unsubscribe();
+      movementSub = null;
+      connectionSub = null;
+      chatSub = null;
+      playerJoinedSub = null;
+      playerLeftSub = null;
       gameService.disconnect();
       patchState(store, initialState);
     };
@@ -130,13 +166,22 @@ export const PlayersStore = signalStore(
       gameService.sendPlayerMove(movement);
     };
 
+    const sendChatMessage = (sender: string, text: string): void => {
+      const message: ChatMessage = { sender, text, timestamp: Date.now() };
+      patchState(store, {
+        chatMessages: [...store.chatMessages(), message]
+      });
+      gameService.sendChatMessage(sender, text);
+    };
+
     return {
       addPlayer,
       removePlayer,
       updatePlayerPosition,
       connect,
       disconnect,
-      sendPlayerMove
+      sendPlayerMove,
+      sendChatMessage
     };
   })
 );

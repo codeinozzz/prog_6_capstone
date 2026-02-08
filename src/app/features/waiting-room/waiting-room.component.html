@@ -1,5 +1,5 @@
 <section class="waiting-room">
-  <h1 class="waiting-room__title">Sala de Espera</h1>
+  <h1 class="waiting-room__title">Waiting Room</h1>
 
   @if (errorMessage) {
     <div class="error-message">
@@ -7,29 +7,27 @@
     </div>
   }
 
-  <!-- Crear sala -->
   <div class="waiting-room__create">
-    <h2>Crear Sala</h2>
+    <h2>Create Room</h2>
     <div class="waiting-room__create-form">
       <input
         class="waiting-room__input"
         [(ngModel)]="newRoomName"
-        placeholder="Nombre de la sala"
+        placeholder="Room name"
       />
       <select class="waiting-room__select" [(ngModel)]="selectedMap">
         <option value="desert">Desert</option>
         <option value="night_city">Night City</option>
         <option value="forest">Forest</option>
       </select>
-      <button class="waiting-room__button" (click)="createRoom()">Crear</button>
+      <button class="waiting-room__button" (click)="createRoom()">Create</button>
     </div>
   </div>
 
-  <!-- Lista de salas -->
   <div class="waiting-room__rooms">
-    <h2>Salas Disponibles</h2>
+    <h2>Available Rooms</h2>
     @if (rooms.length === 0) {
-      <p class="waiting-room__empty">No hay salas disponibles</p>
+      <p class="waiting-room__empty">No rooms available</p>
     }
     <ul class="waiting-room__list">
       @for (room of rooms; track room.id) {
@@ -37,17 +35,16 @@
           <span class="waiting-room__room-name">{{ room.roomName }}</span>
           <span class="waiting-room__room-players">{{ room.currentPlayers }}/{{ room.maxPlayers }}</span>
           <span class="waiting-room__room-status">{{ room.status }}</span>
-          <button class="waiting-room__button" (click)="joinRoom(room.id)">Unirse</button>
+          <button class="waiting-room__button" (click)="joinRoom(room.id)">Join</button>
         </li>
       }
     </ul>
   </div>
 
-  <!-- Chat -->
   <div class="waiting-room__chat">
     <h2 class="waiting-room__chat-title">Chat</h2>
     <div class="waiting-room__chat-messages">
-      @for (message of messages; track message.timestamp) {
+      @for (message of chatMessages(); track message.timestamp) {
         <p class="waiting-room__chat-message">
           <strong>{{ message.sender }}:</strong> {{ message.text }}
         </p>
@@ -59,10 +56,10 @@
         class="waiting-room__chat-input"
         name="message"
         [(ngModel)]="messageText"
-        placeholder="Escribe un mensaje..."
+        placeholder="Type a message..."
         autocomplete="off"
       />
-      <button class="waiting-room__chat-button" type="submit">Enviar</button>
+      <button class="waiting-room__chat-button" type="submit">Send</button>
     </form>
   </div>
 </section>

@@ -1,8 +1,10 @@
-import { AfterViewInit, Component, ElementRef, HostListener, inject, OnDestroy, ViewChild } from '@angular/core';
+import { AfterViewInit, Component, ElementRef, HostListener, inject, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { MapStore, GameStore } from '../../store';
+import { MapStore, GameStore, PlayersStore } from '../../store';
 import { Tank } from '../../core/models/tank.model';
 import { Bullet } from '../../core/models/bullet.model';
+import { MovementEvent } from '../../core/models/movement.model';
+import { Player } from '../../core/models/player.model';
 
 @Component({
   selector: 'app-game-canvas',
@@ -11,12 +13,13 @@ import { Bullet } from '../../core/models/bullet.model';
   templateUrl: './game-canvas.component.html',
   styleUrls: ['./game-canvas.component.scss']
 })
-export class GameCanvasComponent implements AfterViewInit, OnDestroy {
+export class GameCanvasComponent implements AfterViewInit, OnInit, OnDestroy {
   @ViewChild('gameCanvas', { static: true })
   private readonly canvasRef!: ElementRef<HTMLCanvasElement>;
 
   private readonly mapStore = inject(MapStore);
   private readonly gameStore = inject(GameStore);
+  private readonly playersStore = inject(PlayersStore);
 
   private readonly canvasWidth = 400;
   private readonly canvasHeight = 400;
@@ -37,6 +40,10 @@ export class GameCanvasComponent implements AfterViewInit, OnDestroy {
   bullets: Bullet[] = [];
   private bulletIdCounter = 0;
 
+  ngOnInit(): void {
+    this.playersStore.connect();
+  }
+
   ngAfterViewInit(): void {
     const canvas = this.canvasRef.nativeElement;
     canvas.width = this.canvasWidth;
@@ -48,6 +55,7 @@ export class GameCanvasComponent implements AfterViewInit, OnDestroy {
     if (this.animationId) {
       cancelAnimationFrame(this.animationId);
     }
+    this.playersStore.disconnect();
   }
 
   @HostListener('window:keydown', ['$event'])
@@ -90,6 +98,23 @@ export class GameCanvasComponent implements AfterViewInit, OnDestroy {
       this.tank.position.x = Math.max(0, Math.min(this.canvasWidth - this.tankSize, newX));
       this.tank.position.y = Math.max(0, Math.min(this.canvasHeight - this.tankSize, newY));
     }
+
+    this.broadcastMovement();
+  }
+
+  private broadcastMovement(): void {
+    const localPlayerId = this.playersStore.localPlayerId();
+    if (!localPlayerId) return;
+
+    const movement: MovementEvent = {
+      playerId: localPlayerId,
+      position: { x: this.tank.position.x, y: this.tank.position.y },
+      direction: this.tank.direction,
+      timestamp: Date.now()
+    };
+
+    this.playersStore.updatePlayerPosition(localPlayerId, movement.position, movement.direction);
+    this.playersStore.sendPlayerMove(movement);
   }
 
   private checkCollision(x: number, y: number): boolean {
@@ -216,6 +241,7 @@ export class GameCanvasComponent implements AfterViewInit, OnDestroy {
     ctx.fillRect(0, 0, this.canvasWidth, this.canvasHeight);
 
     this.drawMap(ctx);
+    this.drawRemotePlayers(ctx);
     this.drawTank(ctx);
     this.drawBullets(ctx);
   }
@@ -241,6 +267,43 @@ export class GameCanvasComponent implements AfterViewInit, OnDestroy {
         ctx.strokeRect(x * tileSize, y * tileSize, tileSize, tileSize);
       }
     }
+  }
+
+  private drawRemotePlayers(ctx: CanvasRenderingContext2D): void {
+    const remotePlayers = this.playersStore.remotePlayers();
+    for (const player of remotePlayers) {
+      this.drawRemoteTank(ctx, player);
+    }
+  }
+
+  private drawRemoteTank(ctx: CanvasRenderingContext2D, player: Player): void {
+    const { x, y } = player.position;
+    const size = this.tankSize;
+    const centerX = x + size / 2;
+    const centerY = y + size / 2;
+
+    ctx.save();
+    ctx.translate(centerX, centerY);
+
+    const rotationMap = { up: -90, down: 90, left: 180, right: 0 };
+    const angle = (rotationMap[player.direction] * Math.PI) / 180;
+    ctx.rotate(angle);
+
+    ctx.fillStyle = '#8b0000';
+    ctx.fillRect(-size / 2, -size / 2.5, size, size / 1.25);
+
+    ctx.fillStyle = '#5c0000';
+    ctx.fillRect(-size / 4, -size / 4, size / 2, size / 2);
+
+    ctx.fillStyle = '#cc0000';
+    ctx.fillRect(size / 4, -3, size / 2.5, 6);
+
+    ctx.restore();
+
+    ctx.fillStyle = '#ff4444';
+    ctx.font = '10px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText(player.name, centerX, y - 5);
   }
 
   private drawTank(ctx: CanvasRenderingContext2D): void {
