@@ -1,7 +1,9 @@
 <div class="movement-container">
-  <p class="status" [class.connected]="isConnected$ | async">
-    {{ (isConnected$ | async) ? 'Conectado' : 'Desconectado' }}
-  </p>
+<p class="status" [class.connected]="isConnected()">
+  {{ isConnected() ? 'Conectado' : 'Desconectado' }}
+</p>
   <p class="hint">Usa flechas o WASD para enviar movimientos.</p>
   <p class="hint">Revisa la consola para eventos recibidos.</p>
 </div>
+
+<app-game-canvas></app-game-canvas>
