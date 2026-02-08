@@ -1,0 +1,46 @@
+.player-hud {
+  background: #1a1a1a;
+  padding: 16px;
+  border: 2px solid #00ff00;
+  font-family: monospace;
+}
+
+.hud-item {
+ margin-bottom: 8px;
+}
+
+.hud-label {
+  color: #00ff00;
+  font-weight: bold;
+}
+
+.hud-value {
+  color: #ffff00;
+  font-size: 18px;
+  margin-left: 8px;
+}
+
+.status-indicator {
+  margin-top: 16px;
+  padding: 12px;
+  background: #1a1a1a;
+  border: 2px solid #00ff00;
+  font-family: monospace;
+  font-size: 16px;
+  text-align: center;
+}
+
+.status-alive {
+  color: #00ff00;
+  font-weight: bold;
+}
+
+.status-injured {
+  color: #ffff00;
+  font-weight: bold;
+}
+
+.status-dead {
+  color: #ff0000;
+  font-weight: bold;
+}

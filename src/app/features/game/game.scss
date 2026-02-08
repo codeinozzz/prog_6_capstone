@@ -1,0 +1,18 @@
+.game-container {
+  padding: 24px;
+  max-width: 500px;
+  margin: 0 auto;
+  background: #0a0a0a;
+  min-height: 100vh;
+}
+
+.game-title {
+  text-align: center;
+  font-size: 32px;
+  color: #00ff00;
+  margin: 0 0 20px;
+  font-family: monospace;
+  text-transform: uppercase;
+  letter-spacing: 4px;
+  text-shadow: 0 0 10px #00ff00;
+}
