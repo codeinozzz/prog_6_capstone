@@ -1,0 +1,82 @@
+.login {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  background: #0a0a0a;
+  color: #00ff00;
+  font-family: monospace;
+}
+
+.login__title {
+  font-size: 32px;
+  text-transform: uppercase;
+  letter-spacing: 4px;
+  margin-bottom: 8px;
+}
+
+.login__subtitle {
+  font-size: 18px;
+  margin-bottom: 24px;
+  color: #00cc00;
+}
+
+.login__form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 300px;
+}
+
+.login__input {
+  padding: 10px;
+  border: 1px solid #00ff00;
+  border-radius: 4px;
+  background: #1a1a1a;
+  color: #00ff00;
+  font-family: monospace;
+  font-size: 14px;
+}
+
+.login__input::placeholder {
+  color: #006600;
+}
+
+.login__button {
+  padding: 12px;
+  border: none;
+  border-radius: 4px;
+  background: #2d6a4f;
+  color: #fff;
+  font-family: monospace;
+  font-size: 16px;
+  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+}
+
+.login__button:hover {
+  background: #40916c;
+}
+
+.login__toggle {
+  margin-top: 16px;
+  color: #00cc00;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.login__toggle:hover {
+  text-decoration: underline;
+}
+
+.error-message {
+  background-color: #ff4444;
+  color: white;
+  padding: 10px;
+  border-radius: 4px;
+  margin-bottom: 10px;
+  width: 300px;
+  text-align: center;
+}
