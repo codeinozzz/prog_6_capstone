@@ -1,8 +1,11 @@
 import { Routes } from '@angular/router';
-import { TankContainerComponent } from './features/tank/tank-container.component';
+import { Game } from './features/game/game';
+import { LoginComponent } from './features/login/login.component';
 import { WaitingRoomComponent } from './features/waiting-room/waiting-room.component';
 
 export const routes: Routes = [
-  { path: '', component: WaitingRoomComponent },
-  { path: 'tank', component: TankContainerComponent }
+  { path: '', redirectTo: 'login', pathMatch: 'full' },
+  { path: 'login', component: LoginComponent },
+  { path: 'waiting-room', component: WaitingRoomComponent },
+  { path: 'game', component: Game }
 ];

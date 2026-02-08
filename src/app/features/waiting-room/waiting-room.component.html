@@ -1,19 +1,57 @@
 <section class="waiting-room">
-  <h1 class="waiting-room__title">Waiting Room</h1>
-  <p class="waiting-room__count">Jugadores conectados: {{ players().length }}</p>
+  <h1 class="waiting-room__title">Sala de Espera</h1>
 
-  <ul class="waiting-room__list">
-    <li *ngFor="let player of players()" class="waiting-room__item">
-      {{ player.name }} <span class="waiting-room__id">({{ player.id }})</span>
-    </li>
-  </ul>
+  @if (errorMessage) {
+    <div class="error-message">
+      {{ errorMessage }}
+    </div>
+  }
 
+  <!-- Crear sala -->
+  <div class="waiting-room__create">
+    <h2>Crear Sala</h2>
+    <div class="waiting-room__create-form">
+      <input
+        class="waiting-room__input"
+        [(ngModel)]="newRoomName"
+        placeholder="Nombre de la sala"
+      />
+      <select class="waiting-room__select" [(ngModel)]="selectedMap">
+        <option value="desert">Desert</option>
+        <option value="night_city">Night City</option>
+        <option value="forest">Forest</option>
+      </select>
+      <button class="waiting-room__button" (click)="createRoom()">Crear</button>
+    </div>
+  </div>
+
+  <!-- Lista de salas -->
+  <div class="waiting-room__rooms">
+    <h2>Salas Disponibles</h2>
+    @if (rooms.length === 0) {
+      <p class="waiting-room__empty">No hay salas disponibles</p>
+    }
+    <ul class="waiting-room__list">
+      @for (room of rooms; track room.id) {
+        <li class="waiting-room__room-item">
+          <span class="waiting-room__room-name">{{ room.roomName }}</span>
+          <span class="waiting-room__room-players">{{ room.currentPlayers }}/{{ room.maxPlayers }}</span>
+          <span class="waiting-room__room-status">{{ room.status }}</span>
+          <button class="waiting-room__button" (click)="joinRoom(room.id)">Unirse</button>
+        </li>
+      }
+    </ul>
+  </div>
+
+  <!-- Chat -->
   <div class="waiting-room__chat">
     <h2 class="waiting-room__chat-title">Chat</h2>
     <div class="waiting-room__chat-messages">
-      <p *ngFor="let message of messages" class="waiting-room__chat-message">
-        <strong>{{ message.sender }}:</strong> {{ message.text }}
-      </p>
+      @for (message of messages; track message.timestamp) {
+        <p class="waiting-room__chat-message">
+          <strong>{{ message.sender }}:</strong> {{ message.text }}
+        </p>
+      }
     </div>
 
     <form class="waiting-room__chat-form" (ngSubmit)="sendMessage()">

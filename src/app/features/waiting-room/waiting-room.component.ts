@@ -6,6 +6,8 @@ import { Player } from '../../core/models/player.model';
 import { PlayersStore } from '../../store/players/players.store';
 import { ChatService } from '../../core/services/chat.service';
 import { ChatMessage } from '../../core/models/chat-message.model';
+import { RoomService } from '../../core/services/room.service';
+import { RoomResponse } from '../../core/models/room.model';
 
 @Component({
   selector: 'app-waiting-room',
@@ -17,6 +19,7 @@ import { ChatMessage } from '../../core/models/chat-message.model';
 export class WaitingRoomComponent implements OnInit, OnDestroy {
   private readonly playersStore = inject(PlayersStore);
   private readonly chatService = inject(ChatService);
+  private readonly roomService = inject(RoomService);
   private readonly knownPlayerIds = new Set<string>();
   private chatSubscription: Subscription | null = null;
 
@@ -24,6 +27,10 @@ export class WaitingRoomComponent implements OnInit, OnDestroy {
   readonly localPlayer = this.playersStore.localPlayer;
   readonly messages: ChatMessage[] = [];
 
+  rooms: RoomResponse[] = [];
+  newRoomName = '';
+  selectedMap = 'desert';
+  errorMessage = '';
   messageText = '';
 
   @Output() playerJoined = new EventEmitter<Player>();
@@ -46,6 +53,7 @@ export class WaitingRoomComponent implements OnInit, OnDestroy {
     this.chatSubscription = this.chatService.onMessage().subscribe((message) => {
       this.messages.push(message);
     });
+    this.loadRooms();
   }
 
   ngOnDestroy(): void {
@@ -53,6 +61,40 @@ export class WaitingRoomComponent implements OnInit, OnDestroy {
     this.chatSubscription?.unsubscribe();
     this.chatService.disconnect();
     this.knownPlayerIds.clear();
+  }
+
+  loadRooms(): void {
+    this.roomService.getRooms().subscribe({
+      next: (rooms) => this.rooms = rooms,
+      error: () => this.errorMessage = 'Error al cargar salas'
+    });
+  }
+
+  createRoom(): void {
+    if (!this.newRoomName.trim()) return;
+
+    this.roomService.createRoom(this.newRoomName, this.selectedMap).subscribe({
+      next: (room) => {
+        this.rooms.push(room);
+        this.newRoomName = '';
+      },
+      error: () => this.errorMessage = 'Error al crear sala'
+    });
+  }
+
+  joinRoom(roomId: number): void {
+    this.roomService.joinRoom(roomId).subscribe({
+      next: () => {
+        this.loadRooms();
+      },
+      error: (err) => {
+        if (err.status === 400) {
+          this.errorMessage = 'Sala llena o no disponible';
+        } else {
+          this.errorMessage = 'Error al unirse a la sala';
+        }
+      }
+    });
   }
 
   sendMessage(): void {
