@@ -1,56 +1,35 @@
 import { Component, OnInit, OnDestroy, HostListener, inject } from '@angular/core';
-import { Store } from '@ngrx/store';
-import { Observable, Subject } from 'rxjs';
-import { takeUntil } from 'rxjs/operators';
 import { CommonModule } from '@angular/common';
-import * as PlayersActions from '../../store/players/players.actions';
-import * as PlayersSelectors from '../../store/players/players.selectors';
-import { Player } from '../../core/models/player.model';
 import { MovementEvent } from '../../core/models/movement.model';
+import { PlayersStore } from '../../store/players/players.store';
+import { GameCanvasComponent } from '../game-canvas/game-canvas.component';
 
 @Component({
   selector: 'app-tank-container',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, GameCanvasComponent],
   templateUrl: './tank-container.component.html',
   styleUrls: ['./tank-container.component.scss']
 })
 export class TankContainerComponent implements OnInit, OnDestroy {
-  private readonly store = inject(Store);
-  private readonly destroy$ = new Subject<void>();
-  private localPlayer: Player | null = null;
-  private isConnected = false;
+  private readonly playersStore = inject(PlayersStore);
 
-  readonly localPlayer$: Observable<Player | null> = this.store.select(PlayersSelectors.selectLocalPlayer);
-  readonly isConnected$: Observable<boolean> = this.store.select(PlayersSelectors.selectIsConnected);
+  readonly localPlayer = this.playersStore.localPlayer;
+  readonly isConnected = this.playersStore.isConnected;
 
   ngOnInit(): void {
-    this.store.dispatch(PlayersActions.connectToHub());
+    this.playersStore.connect();
     console.log('[Tank Container] Connecting to SignalR hub');
-
-    this.localPlayer$
-      .pipe(takeUntil(this.destroy$))
-      .subscribe(player => {
-        this.localPlayer = player;
-      });
-
-    this.isConnected$
-      .pipe(takeUntil(this.destroy$))
-      .subscribe(isConnected => {
-        this.isConnected = isConnected;
-      });
   }
 
   ngOnDestroy(): void {
-    this.store.dispatch(PlayersActions.disconnectFromHub());
-    this.destroy$.next();
-    this.destroy$.complete();
+    this.playersStore.disconnect();
     console.log('[Tank Container] Disconnected from hub');
   }
 
   @HostListener('window:keydown', ['$event'])
   handleKeyDown(event: KeyboardEvent): void {
-    if (!this.isConnected || !this.localPlayer) return;
+    if (!this.isConnected() || !this.localPlayer()) return;
 
     const keyMap: { [key: string]: 'up' | 'down' | 'left' | 'right' } = {
       ArrowUp: 'up',
@@ -75,10 +54,11 @@ export class TankContainerComponent implements OnInit, OnDestroy {
   }
 
   private moveLocalPlayer(direction: 'up' | 'down' | 'left' | 'right'): void {
-    if (!this.localPlayer) return;
+    const localPlayer = this.localPlayer();
+    if (!localPlayer) return;
 
     const moveDistance = 20;
-    const newPosition = { ...this.localPlayer.position };
+    const newPosition = { ...localPlayer.position };
 
     switch (direction) {
       case 'up':
@@ -95,20 +75,14 @@ export class TankContainerComponent implements OnInit, OnDestroy {
         break;
     }
 
-    this.store.dispatch(
-      PlayersActions.updatePlayerPosition({
-        playerId: this.localPlayer.id,
-        position: newPosition,
-        direction
-      })
-    );
+    this.playersStore.updatePlayerPosition(localPlayer.id, newPosition, direction);
 
     const movement: MovementEvent = {
-      playerId: this.localPlayer.id,
+      playerId: localPlayer.id,
       position: newPosition,
       direction,
       timestamp: Date.now()
     };
-    this.store.dispatch(PlayersActions.sendMovement({ movement }));
+    this.playersStore.sendPlayerMove(movement);
   }
 }

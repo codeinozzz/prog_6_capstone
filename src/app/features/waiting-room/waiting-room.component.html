@@ -1,0 +1,30 @@
+<section class="waiting-room">
+  <h1 class="waiting-room__title">Waiting Room</h1>
+  <p class="waiting-room__count">Jugadores conectados: {{ players().length }}</p>
+
+  <ul class="waiting-room__list">
+    <li *ngFor="let player of players()" class="waiting-room__item">
+      {{ player.name }} <span class="waiting-room__id">({{ player.id }})</span>
+    </li>
+  </ul>
+
+  <div class="waiting-room__chat">
+    <h2 class="waiting-room__chat-title">Chat</h2>
+    <div class="waiting-room__chat-messages">
+      <p *ngFor="let message of messages" class="waiting-room__chat-message">
+        <strong>{{ message.sender }}:</strong> {{ message.text }}
+      </p>
+    </div>
+
+    <form class="waiting-room__chat-form" (ngSubmit)="sendMessage()">
+      <input
+        class="waiting-room__chat-input"
+        name="message"
+        [(ngModel)]="messageText"
+        placeholder="Escribe un mensaje..."
+        autocomplete="off"
+      />
+      <button class="waiting-room__chat-button" type="submit">Enviar</button>
+    </form>
+  </div>
+</section>
