@@ -1,14 +1,14 @@
 import { TestBed } from '@angular/core/testing';
-import { SignalRSimulationService } from './signalr-simulation.service';
+import { GameService } from './game.service';
 import { take } from 'rxjs/operators';
 import { firstValueFrom } from 'rxjs';
 
-describe('SignalRSimulationService', () => {
-  let service: SignalRSimulationService;
+describe('GameService', () => {
+  let service: GameService;
 
   beforeEach(() => {
     TestBed.configureTestingModule({});
-    service = TestBed.inject(SignalRSimulationService);
+    service = TestBed.inject(GameService);
   });
 
   it('should be created', () => {
@@ -22,7 +22,7 @@ describe('SignalRSimulationService', () => {
   });
 
   it('should emit movement events', async () => {
-    const movementPromise = firstValueFrom(service.onMovementReceived().pipe(take(1)));
+    const movementPromise = firstValueFrom(service.onPlayerMove().pipe(take(1)));
     await firstValueFrom(service.connect());
     const { playerId, movement } = await movementPromise;
 
@@ -39,7 +39,7 @@ describe('SignalRSimulationService', () => {
       timestamp: Date.now()
     };
 
-    expect(() => service.sendMovement(movement)).not.toThrow();
+    expect(() => service.sendPlayerMove(movement)).not.toThrow();
   });
 
   it('should disconnect and clear state', async () => {

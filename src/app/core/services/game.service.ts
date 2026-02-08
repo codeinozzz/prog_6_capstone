@@ -6,7 +6,7 @@ import { MovementEvent } from '../models/movement.model';
 @Injectable({
   providedIn: 'root'
 })
-export class SignalRSimulationService {
+export class GameService {
   private readonly connectionSubject = new BehaviorSubject<boolean>(false);
   private readonly movementSubject = new Subject<{ playerId: string; movement: MovementEvent }>();
   private readonly destroySubject = new Subject<void>();
@@ -38,11 +38,11 @@ export class SignalRSimulationService {
     console.log('[SignalR Simulation] Disconnected');
   }
 
-  sendMovement(movement: MovementEvent): void {
+  sendPlayerMove(movement: MovementEvent): void {
     console.log('[SignalR Simulation] Sending movement:', movement);
   }
 
-  onMovementReceived(): Observable<{ playerId: string; movement: MovementEvent }> {
+  onPlayerMove(): Observable<{ playerId: string; movement: MovementEvent }> {
     return this.movementSubject.asObservable();
   }
 
