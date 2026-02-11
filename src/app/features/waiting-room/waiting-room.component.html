@@ -7,39 +7,70 @@
     </div>
   }
 
-  <div class="waiting-room__create">
-    <h2>Create Room</h2>
-    <div class="waiting-room__create-form">
-      <input
-        class="waiting-room__input"
-        [(ngModel)]="newRoomName"
-        placeholder="Room name"
-      />
-      <select class="waiting-room__select" [(ngModel)]="selectedMap">
-        <option value="desert">Desert</option>
-        <option value="night_city">Night City</option>
-        <option value="forest">Forest</option>
-      </select>
-      <button class="waiting-room__button" (click)="createRoom()">Create</button>
+  @if (!currentRoom) {
+    <!-- PHASE A: Room list -->
+    <div class="waiting-room__create">
+      <h2>Create Room</h2>
+      <div class="waiting-room__create-form">
+        <input
+          class="waiting-room__input"
+          [(ngModel)]="newRoomName"
+          placeholder="Room name"
+        />
+        <select class="waiting-room__select" [(ngModel)]="selectedMap">
+          <option value="desert">Desert</option>
+          <option value="night_city">Night City</option>
+          <option value="forest">Forest</option>
+        </select>
+        <button class="waiting-room__button" (click)="createRoom()" [disabled]="loading">Create</button>
+      </div>
     </div>
-  </div>
 
-  <div class="waiting-room__rooms">
-    <h2>Available Rooms</h2>
-    @if (rooms.length === 0) {
-      <p class="waiting-room__empty">No rooms available</p>
-    }
-    <ul class="waiting-room__list">
-      @for (room of rooms; track room.id) {
-        <li class="waiting-room__room-item">
-          <span class="waiting-room__room-name">{{ room.roomName }}</span>
-          <span class="waiting-room__room-players">{{ room.currentPlayers }}/{{ room.maxPlayers }}</span>
-          <span class="waiting-room__room-status">{{ room.status }}</span>
-          <button class="waiting-room__button" (click)="joinRoom(room.id)">Join</button>
-        </li>
+    <div class="waiting-room__rooms">
+      <h2>Available Rooms</h2>
+      @if (rooms.length === 0) {
+        <p class="waiting-room__empty">No rooms available</p>
       }
-    </ul>
-  </div>
+      <ul class="waiting-room__list">
+        @for (room of rooms; track room.id) {
+          <li class="waiting-room__room-item">
+            <span class="waiting-room__room-name">{{ room.roomName }}</span>
+            <span class="waiting-room__room-players">{{ room.currentPlayers }}/{{ room.maxPlayers }}</span>
+            <span class="waiting-room__room-status">{{ room.status }}</span>
+            <button class="waiting-room__button" (click)="joinRoom(room)" [disabled]="loading">Join</button>
+            <button class="waiting-room__button waiting-room__button--danger" (click)="deleteRoom(room.id)" [disabled]="loading">Delete</button>
+          </li>
+        }
+      </ul>
+    </div>
+  } @else {
+    <!-- PHASE B: Lobby (inside a room) -->
+    <div class="waiting-room__lobby">
+      <div class="waiting-room__lobby-header">
+        <h2>{{ currentRoom.roomName }}</h2>
+        <span class="waiting-room__lobby-map">Map: {{ currentRoom.mapName ?? selectedMap }}</span>
+        <button class="waiting-room__button" (click)="leaveRoom()">Leave</button>
+      </div>
+
+      <div class="waiting-room__players">
+        <h3>Players Connected</h3>
+        <ul class="waiting-room__list">
+          @for (player of players(); track player.id) {
+            <li class="waiting-room__player-item">
+              {{ player.name }}
+              @if (player.isLocal) {
+                <span class="waiting-room__player-you">(You)</span>
+              }
+            </li>
+          }
+        </ul>
+      </div>
+
+      <button class="waiting-room__button waiting-room__button--start" (click)="startGame()">
+        Start Game
+      </button>
+    </div>
+  }
 
   <div class="waiting-room__chat">
     <h2 class="waiting-room__chat-title">Chat</h2>

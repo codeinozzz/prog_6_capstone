@@ -30,13 +30,25 @@ export class LoginComponent {
     if (this.isLoginMode) {
       this.authService.login(this.username, this.password).subscribe({
         next: () => this.router.navigate(['/waiting-room']),
-        error: (err) => this.errorMessage = err.error || 'Error al iniciar sesion'
+        error: (err) => this.errorMessage = this.parseError(err, 'Error al iniciar sesion')
       });
     } else {
       this.authService.register(this.username, this.email, this.password).subscribe({
         next: () => this.router.navigate(['/waiting-room']),
-        error: (err) => this.errorMessage = err.error || 'Error al registrarse'
+        error: (err) => this.errorMessage = this.parseError(err, 'Error al registrarse')
       });
     }
+  }
+
+  private parseError(err: any, fallback: string): string {
+    const body = err.error;
+    if (!body) return fallback;
+    if (typeof body === 'string') return body;
+    if (body.errors) {
+      const messages = Object.values(body.errors).flat();
+      return messages.join('. ');
+    }
+    if (body.title) return body.title;
+    return fallback;
   }
 }

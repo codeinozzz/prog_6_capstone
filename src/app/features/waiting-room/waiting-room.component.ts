@@ -1,6 +1,8 @@
 import { Component, EventEmitter, OnDestroy, OnInit, Output, effect, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { Router } from '@angular/router';
+import { finalize, Subscription } from 'rxjs';
 import { Player } from '../../core/models/player.model';
 import { PlayersStore } from '../../store/players/players.store';
 import { RoomService } from '../../core/services/room.service';
@@ -16,6 +18,7 @@ import { RoomResponse } from '../../core/models/room.model';
 export class WaitingRoomComponent implements OnInit, OnDestroy {
   private readonly playersStore = inject(PlayersStore);
   private readonly roomService = inject(RoomService);
+  private readonly router = inject(Router);
   private readonly knownPlayerIds = new Set<string>();
 
   readonly players = this.playersStore.playersList;
@@ -27,6 +30,11 @@ export class WaitingRoomComponent implements OnInit, OnDestroy {
   selectedMap = 'desert';
   errorMessage = '';
   messageText = '';
+  loading = false;
+
+  currentRoom: RoomResponse | null = null;
+  isHost = false;
+  private gameStartedSub: Subscription | null = null;
 
   @Output() playerJoined = new EventEmitter<Player>();
 
@@ -45,10 +53,17 @@ export class WaitingRoomComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.playersStore.connect();
     this.loadRooms();
+
+    this.gameStartedSub = this.playersStore.onGameStarted().subscribe((mapName) => {
+      this.router.navigate(['/game'], { queryParams: { map: mapName } });
+    });
   }
 
   ngOnDestroy(): void {
-    this.playersStore.disconnect();
+    this.gameStartedSub?.unsubscribe();
+    if (!this.currentRoom) {
+      this.playersStore.disconnect();
+    }
     this.knownPlayerIds.clear();
   }
 
@@ -60,29 +75,66 @@ export class WaitingRoomComponent implements OnInit, OnDestroy {
   }
 
   createRoom(): void {
-    if (!this.newRoomName.trim()) return;
+    if (!this.newRoomName.trim() || this.loading) return;
+    this.loading = true;
 
-    this.roomService.createRoom(this.newRoomName, this.selectedMap).subscribe({
+    this.roomService.createRoom(this.newRoomName, this.selectedMap).pipe(
+      finalize(() => this.loading = false)
+    ).subscribe({
       next: (room) => {
-        this.rooms.push(room);
+        this.rooms = [...this.rooms, room];
+        this.currentRoom = room;
+        this.isHost = true;
         this.newRoomName = '';
       },
       error: () => this.errorMessage = 'Error creating room'
     });
   }
 
-  joinRoom(roomId: number): void {
-    this.roomService.joinRoom(roomId).subscribe({
+  joinRoom(room: RoomResponse): void {
+    if (this.loading) return;
+    this.loading = true;
+
+    this.roomService.joinRoom(room.id).pipe(
+      finalize(() => this.loading = false)
+    ).subscribe({
       next: () => {
-        this.loadRooms();
+        this.currentRoom = room;
+        this.isHost = false;
       },
       error: (err) => {
-        if (err.status === 400) {
+        if (err.status === 409) {
           this.errorMessage = 'Room full or unavailable';
+        } else if (err.status === 401) {
+          this.errorMessage = 'Authentication required';
         } else {
           this.errorMessage = 'Error joining room';
         }
       }
+    });
+  }
+
+  leaveRoom(): void {
+    this.currentRoom = null;
+    this.isHost = false;
+    this.loadRooms();
+  }
+
+  startGame(): void {
+    if (!this.currentRoom) return;
+    const mapName = this.currentRoom.mapName ?? this.selectedMap;
+    this.playersStore.startGame(mapName);
+  }
+
+  deleteRoom(roomId: number): void {
+    if (this.loading) return;
+    this.loading = true;
+
+    this.roomService.deleteRoom(roomId).pipe(
+      finalize(() => this.loading = false)
+    ).subscribe({
+      next: () => this.rooms = this.rooms.filter(r => r.id !== roomId),
+      error: () => this.errorMessage = 'Error deleting room'
     });
   }
 

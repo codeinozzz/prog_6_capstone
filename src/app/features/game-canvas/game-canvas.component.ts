@@ -41,7 +41,9 @@ export class GameCanvasComponent implements AfterViewInit, OnInit, OnDestroy {
   private bulletIdCounter = 0;
 
   ngOnInit(): void {
-    this.playersStore.connect();
+    if (!this.playersStore.isConnected()) {
+      this.playersStore.connect();
+    }
   }
 
   ngAfterViewInit(): void {
@@ -55,7 +57,6 @@ export class GameCanvasComponent implements AfterViewInit, OnInit, OnDestroy {
     if (this.animationId) {
       cancelAnimationFrame(this.animationId);
     }
-    this.playersStore.disconnect();
   }
 
   @HostListener('window:keydown', ['$event'])

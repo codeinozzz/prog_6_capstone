@@ -16,6 +16,7 @@ export class GameService {
   private readonly chatSubject = new Subject<ChatMessage>();
   private readonly playerJoinedSubject = new Subject<{ playerId: string; playerName: string }>();
   private readonly playerLeftSubject = new Subject<string>();
+  private readonly gameStartedSubject = new Subject<string>();
 
   private localPlayerId: string | null = null;
 
@@ -68,6 +69,15 @@ export class GameService {
   joinGame(playerId: string, playerName: string): void {
     this.connection.invoke('JoinGame', playerId, playerName)
       .catch(err => console.error('[SignalR] JoinGame error:', err));
+  }
+
+  startGame(mapName: string): void {
+    this.connection.invoke('StartGame', mapName)
+      .catch(err => console.error('[SignalR] StartGame error:', err));
+  }
+
+  onGameStarted(): Observable<string> {
+    return this.gameStartedSubject.asObservable();
   }
 
   onPlayerMove(): Observable<{ playerId: string; movement: MovementEvent }> {
@@ -124,6 +134,11 @@ export class GameService {
     this.connection.on('ConnectionEstablished', (connectionId: string) => {
       this.localPlayerId = connectionId;
       console.log(`[SignalR] ConnectionEstablished: ${connectionId}`);
+    });
+
+    this.connection.on('GameStarted', (mapName: string) => {
+      console.log(`[SignalR] GameStarted with map: ${mapName}`);
+      this.gameStartedSubject.next(mapName);
     });
   }
 }

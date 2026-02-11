@@ -67,7 +67,7 @@ export const PlayersStore = signalStore(
       if (!player) {
         addPlayer({
           id: playerId,
-          name: isLocal ? 'Local Player' : 'Remote Player',
+          name: isLocal ? playerName : 'Remote Player',
           position,
           direction,
           isLocal,
@@ -84,8 +84,11 @@ export const PlayersStore = signalStore(
       });
     };
 
-    const connect = (): void => {
+    let playerName = 'Player';
+
+    const connect = (name?: string): void => {
       if (store.isConnected()) return;
+      playerName = name ?? localStorage.getItem('username') ?? 'Player';
 
       connectionSub?.unsubscribe();
       connectionSub = gameService.connect().subscribe({
@@ -98,14 +101,14 @@ export const PlayersStore = signalStore(
 
           addPlayer({
             id: playerId,
-            name: 'Local Player',
+            name: playerName,
             position: { x: 250, y: 250 },
             direction: 'up',
             isLocal: true,
             lastUpdated: Date.now()
           });
 
-          gameService.joinGame(playerId, 'Local Player');
+          gameService.joinGame(playerId, playerName);
         },
         error: (error: Error) => {
           patchState(store, {
@@ -167,12 +170,14 @@ export const PlayersStore = signalStore(
     };
 
     const sendChatMessage = (sender: string, text: string): void => {
-      const message: ChatMessage = { sender, text, timestamp: Date.now() };
-      patchState(store, {
-        chatMessages: [...store.chatMessages(), message]
-      });
       gameService.sendChatMessage(sender, text);
     };
+
+    const startGame = (mapName: string): void => {
+      gameService.startGame(mapName);
+    };
+
+    const onGameStarted = () => gameService.onGameStarted();
 
     return {
       addPlayer,
@@ -181,7 +186,9 @@ export const PlayersStore = signalStore(
       connect,
       disconnect,
       sendPlayerMove,
-      sendChatMessage
+      sendChatMessage,
+      startGame,
+      onGameStarted
     };
   })
 );
