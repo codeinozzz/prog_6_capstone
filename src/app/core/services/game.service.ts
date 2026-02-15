@@ -1,107 +1,183 @@
 import { Injectable } from '@angular/core';
-import { Observable, Subject, BehaviorSubject, interval, of } from 'rxjs';
-import { map, delay, takeUntil } from 'rxjs/operators';
+import { Observable, Subject, BehaviorSubject, from } from 'rxjs';
+import { map } from 'rxjs/operators';
+import * as signalR from '@microsoft/signalr';
 import { MovementEvent } from '../models/movement.model';
+import { ChatMessage } from '../models/chat-message.model';
 
 @Injectable({
   providedIn: 'root'
 })
 export class GameService {
+  private connection: signalR.HubConnection;
+
   private readonly connectionSubject = new BehaviorSubject<boolean>(false);
   private readonly movementSubject = new Subject<{ playerId: string; movement: MovementEvent }>();
-  private readonly destroySubject = new Subject<void>();
+  private readonly chatSubject = new Subject<ChatMessage>();
+  private readonly playerJoinedSubject = new Subject<{ playerId: string; playerName: string; x: number; y: number }>();
+  private readonly playerLeftSubject = new Subject<string>();
+  private readonly gameStartedSubject = new Subject<string>();
+  private readonly existingPlayersSubject = new Subject<{ playerId: string; playerName: string; x: number; y: number }[]>();
+  private readonly bulletFiredSubject = new Subject<{ playerId: string; x: number; y: number; direction: string }>();
+  private readonly tileDestroyedSubject = new Subject<{ tileX: number; tileY: number }>();
 
   private localPlayerId: string | null = null;
-  private remotePlayerId = 'remote-player';
-  private remotePosition = { x: 100, y: 100 };
 
-  private readonly SIMULATION_CONFIG = {
-    movementInterval: 1000
-  };
+  private readonly HUB_URL = 'http://localhost:5174/gamehub';
+
+  constructor() {
+    this.connection = new signalR.HubConnectionBuilder()
+      .withUrl(this.HUB_URL)
+      .withAutomaticReconnect()
+      .build();
+
+    this.registerHandlers();
+  }
 
   connect(): Observable<string> {
-    return of(null).pipe(
-      delay(500),
+    return from(this.connection.start()).pipe(
       map(() => {
-        this.localPlayerId = this.generatePlayerId();
+        this.localPlayerId = this.connection.connectionId ?? `player-${Date.now()}`;
         this.connectionSubject.next(true);
-        this.startSimulation();
-        console.log('[SignalR Simulation] Connected with ID:', this.localPlayerId);
+        console.log('[SignalR] Connected with ID:', this.localPlayerId);
         return this.localPlayerId;
       })
     );
   }
 
   disconnect(): void {
-    this.destroySubject.next();
+    this.connection.stop();
     this.connectionSubject.next(false);
-    console.log('[SignalR Simulation] Disconnected');
+    this.localPlayerId = null;
+    console.log('[SignalR] Disconnected');
   }
 
   sendPlayerMove(movement: MovementEvent): void {
-    console.log('[SignalR Simulation] Sending movement:', movement);
+    const sendTimestamp = Date.now();
+    this.connection.invoke('SendPlayerMove', movement.playerId, {
+      position: movement.position,
+      direction: movement.direction,
+      timestamp: sendTimestamp
+    }).catch(err => console.error('[SignalR] SendPlayerMove error:', err));
+  }
+
+  sendChatMessage(sender: string, message: string): void {
+    this.connection.invoke('SendChatMessage', sender, message)
+      .catch(err => console.error('[SignalR] SendChatMessage error:', err));
+  }
+
+  joinGame(playerId: string, playerName: string, roomId?: string, x = 0, y = 0): void {
+    this.connection.invoke('JoinGame', playerId, playerName, roomId ?? '', x, y)
+      .catch(err => console.error('[SignalR] JoinGame error:', err));
+  }
+
+  leaveRoom(): void {
+    this.connection.invoke('LeaveRoom')
+      .catch(err => console.error('[SignalR] LeaveRoom error:', err));
+  }
+
+  startGame(mapName: string): void {
+    this.connection.invoke('StartGame', mapName)
+      .catch(err => console.error('[SignalR] StartGame error:', err));
+  }
+
+  sendBulletFired(playerId: string, x: number, y: number, direction: string): void {
+    this.connection.invoke('BulletFired', playerId, x, y, direction)
+      .catch(err => console.error('[SignalR] BulletFired error:', err));
+  }
+
+  sendTileDestroyed(tileX: number, tileY: number): void {
+    this.connection.invoke('TileDestroyed', tileX, tileY)
+      .catch(err => console.error('[SignalR] TileDestroyed error:', err));
+  }
+
+  onGameStarted(): Observable<string> {
+    return this.gameStartedSubject.asObservable();
   }
 
   onPlayerMove(): Observable<{ playerId: string; movement: MovementEvent }> {
     return this.movementSubject.asObservable();
   }
 
-  private startSimulation(): void {
-    interval(this.SIMULATION_CONFIG.movementInterval)
-      .pipe(takeUntil(this.destroySubject))
-      .subscribe(() => {
-        this.generateRandomMovement();
-      });
+  onChatMessage(): Observable<ChatMessage> {
+    return this.chatSubject.asObservable();
   }
 
-  private generateRandomMovement(): void {
-    const direction = this.getRandomDirection();
-    const movement = this.calculateMovement(this.remotePosition, direction);
-
-    this.remotePosition = movement;
-
-    const movementEvent: MovementEvent = {
-      playerId: this.remotePlayerId,
-      position: movement,
-      direction,
-      timestamp: Date.now()
-    };
-
-    this.movementSubject.next({ playerId: this.remotePlayerId, movement: movementEvent });
-    console.log(`[SignalR Simulation] Remote player moved ${direction}:`, movement);
+  onPlayerJoined(): Observable<{ playerId: string; playerName: string; x: number; y: number }> {
+    return this.playerJoinedSubject.asObservable();
   }
 
-  private calculateMovement(
-    currentPosition: { x: number; y: number },
-    direction: string
-  ): { x: number; y: number } {
-    const moveDistance = 20;
-    const newPosition = { ...currentPosition };
-
-    switch (direction) {
-      case 'up':
-        newPosition.y = Math.max(0, currentPosition.y - moveDistance);
-        break;
-      case 'down':
-        newPosition.y = Math.min(500, currentPosition.y + moveDistance);
-        break;
-      case 'left':
-        newPosition.x = Math.max(0, currentPosition.x - moveDistance);
-        break;
-      case 'right':
-        newPosition.x = Math.min(500, currentPosition.x + moveDistance);
-        break;
-    }
-
-    return newPosition;
+  onPlayerLeft(): Observable<string> {
+    return this.playerLeftSubject.asObservable();
   }
 
-  private getRandomDirection(): 'up' | 'down' | 'left' | 'right' {
-    const directions: ('up' | 'down' | 'left' | 'right')[] = ['up', 'down', 'left', 'right'];
-    return directions[Math.floor(Math.random() * directions.length)];
+  onExistingPlayers(): Observable<{ playerId: string; playerName: string; x: number; y: number }[]> {
+    return this.existingPlayersSubject.asObservable();
   }
 
-  private generatePlayerId(): string {
-    return `player-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
+  onBulletFired(): Observable<{ playerId: string; x: number; y: number; direction: string }> {
+    return this.bulletFiredSubject.asObservable();
+  }
+
+  onTileDestroyed(): Observable<{ tileX: number; tileY: number }> {
+    return this.tileDestroyedSubject.asObservable();
+  }
+
+  getLocalPlayerId(): string | null {
+    return this.localPlayerId;
+  }
+
+  private registerHandlers(): void {
+    this.connection.on('ReceivePlayerMove', (playerId: string, movement: any) => {
+      const receiveTimestamp = Date.now();
+      const latency = receiveTimestamp - (movement.timestamp ?? receiveTimestamp);
+      console.log(`[SignalR] ReceivePlayerMove from ${playerId} | latency: ${latency}ms`);
+
+      const movementEvent: MovementEvent = {
+        playerId,
+        position: movement.position,
+        direction: movement.direction,
+        timestamp: movement.timestamp
+      };
+      this.movementSubject.next({ playerId, movement: movementEvent });
+    });
+
+    this.connection.on('ReceiveChatMessage', (sender: string, message: string) => {
+      const receiveTimestamp = Date.now();
+      this.chatSubject.next({ sender, text: message, timestamp: receiveTimestamp });
+    });
+
+    this.connection.on('PlayerJoined', (playerId: string, playerName: string, x: number, y: number) => {
+      console.log(`[SignalR] PlayerJoined: ${playerName} (${playerId}) at (${x}, ${y})`);
+      this.playerJoinedSubject.next({ playerId, playerName, x, y });
+    });
+
+    this.connection.on('PlayerLeft', (connectionId: string) => {
+      console.log(`[SignalR] PlayerLeft: ${connectionId}`);
+      this.playerLeftSubject.next(connectionId);
+    });
+
+    this.connection.on('ConnectionEstablished', (connectionId: string) => {
+      this.localPlayerId = connectionId;
+      console.log(`[SignalR] ConnectionEstablished: ${connectionId}`);
+    });
+
+    this.connection.on('GameStarted', (mapName: string) => {
+      console.log(`[SignalR] GameStarted with map: ${mapName}`);
+      this.gameStartedSubject.next(mapName);
+    });
+
+    this.connection.on('ExistingPlayers', (players: any[]) => {
+      console.log(`[SignalR] ExistingPlayers:`, players);
+      this.existingPlayersSubject.next(players);
+    });
+
+    this.connection.on('BulletFired', (playerId: string, x: number, y: number, direction: string) => {
+      this.bulletFiredSubject.next({ playerId, x, y, direction });
+    });
+
+    this.connection.on('TileDestroyed', (tileX: number, tileY: number) => {
+      this.tileDestroyedSubject.next({ tileX, tileY });
+    });
   }
 }
