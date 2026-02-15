@@ -1,5 +1,40 @@
 <div class="game-container">
   <h1 class="game-title">Battle Tanks</h1>
   <app-player-hub></app-player-hub>
-  <app-game-canvas></app-game-canvas>
+
+  <div class="game-layout">
+    <app-game-canvas></app-game-canvas>
+
+    <aside class="game-chat">
+      <h2 class="game-chat__title">Chat</h2>
+
+      <div class="game-chat__status">
+        @if (isConnected()) {
+          <span class="game-chat__connected">Connected</span>
+          <span class="game-chat__players">Players: {{ (remotePlayers().length + 1) }}</span>
+        } @else {
+          <span class="game-chat__disconnected">Connecting...</span>
+        }
+      </div>
+
+      <div class="game-chat__messages">
+        @for (msg of chatMessages(); track msg.timestamp) {
+          <p class="game-chat__message">
+            <strong>{{ msg.sender }}:</strong> {{ msg.text }}
+          </p>
+        }
+      </div>
+
+      <form class="game-chat__form" (ngSubmit)="sendMessage()">
+        <input
+          class="game-chat__input"
+          name="chatMessage"
+          [(ngModel)]="messageText"
+          placeholder="Type a message..."
+          autocomplete="off"
+        />
+        <button class="game-chat__send" type="submit">Send</button>
+      </form>
+    </aside>
+  </div>
 </div>

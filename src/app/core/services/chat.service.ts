@@ -42,7 +42,7 @@ export class ChatService {
         return;
       }
     } catch {
-      // fall through to plain text handling
+
     }
 
     this.messageSubject.next({

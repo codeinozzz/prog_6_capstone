@@ -19,4 +19,12 @@ export class RoomService {
   joinRoom(roomId: number): Observable<any> {
     return this.http.put(`${this.API_URL}/${roomId}/join`, {});
   }
+
+  leaveRoom(roomId: number): Observable<any> {
+    return this.http.put(`${this.API_URL}/${roomId}/leave`, {});
+  }
+
+  deleteRoom(roomId: number): Observable<void> {
+    return this.http.delete<void>(`${this.API_URL}/${roomId}`);
+  }
 }

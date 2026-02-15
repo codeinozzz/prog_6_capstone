@@ -55,6 +55,81 @@
   background: #40916c;
 }
 
+.waiting-room__button:disabled {
+  background: #333;
+  cursor: not-allowed;
+}
+
+.waiting-room__button--danger {
+  background: #8b0000;
+
+  &:hover { background: #cc0000; }
+}
+
+.waiting-room__button--start {
+  background: #ff8800;
+  font-size: 16px;
+  padding: 12px 24px;
+  margin-top: 16px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+
+  &:hover { background: #ffaa33; }
+}
+
+.waiting-room__lobby {
+  margin-bottom: 24px;
+}
+
+.waiting-room__lobby-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 16px;
+
+  h2 {
+    margin: 0;
+    font-size: 20px;
+    flex: 1;
+  }
+}
+
+.waiting-room__lobby-map {
+  color: #00cc00;
+  font-size: 14px;
+}
+
+.waiting-room__players {
+  padding: 12px;
+  background: #1a1a1a;
+  border: 1px solid #003300;
+  border-radius: 6px;
+  margin-bottom: 16px;
+
+  h3 {
+    margin: 0 0 8px;
+    font-size: 16px;
+  }
+}
+
+.waiting-room__player-item {
+  padding: 6px 8px;
+  border-bottom: 1px solid #002200;
+
+  &:last-child { border-bottom: none; }
+}
+
+.waiting-room__player-you {
+  color: #00cc00;
+  font-size: 12px;
+  margin-left: 8px;
+}
+
+.waiting-room__waiting-text {
+  color: #006600;
+  font-style: italic;
+}
+
 .waiting-room__rooms {
   margin-bottom: 24px;
 
