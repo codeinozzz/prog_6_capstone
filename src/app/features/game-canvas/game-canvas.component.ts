@@ -1,8 +1,15 @@
-import { AfterViewInit, Component, ElementRef, HostListener, inject, OnDestroy, ViewChild } from '@angular/core';
+import { AfterViewInit, Component, ElementRef, HostListener, inject, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { MapStore, GameStore } from '../../store';
+import { Subscription } from 'rxjs';
+import { MapStore, GameStore, PlayersStore } from '../../store';
 import { Tank } from '../../core/models/tank.model';
 import { Bullet } from '../../core/models/bullet.model';
+import { MovementEvent } from '../../core/models/movement.model';
+import { GameService } from '../../core/services/game.service';
+import { InputHandlerService } from './services/input-handler.service';
+import { CollisionService } from './services/collision.service';
+import { RenderingService } from './services/rendering.service';
+import { CANVAS_WIDTH, CANVAS_HEIGHT, TANK_SIZE, MOVE_SPEED, BULLET_SPEED } from './constants/game.constants';
 
 @Component({
   selector: 'app-game-canvas',
@@ -11,20 +18,21 @@ import { Bullet } from '../../core/models/bullet.model';
   templateUrl: './game-canvas.component.html',
   styleUrls: ['./game-canvas.component.scss']
 })
-export class GameCanvasComponent implements AfterViewInit, OnDestroy {
+export class GameCanvasComponent implements AfterViewInit, OnInit, OnDestroy {
   @ViewChild('gameCanvas', { static: true })
   private readonly canvasRef!: ElementRef<HTMLCanvasElement>;
 
   private readonly mapStore = inject(MapStore);
   private readonly gameStore = inject(GameStore);
-
-  private readonly canvasWidth = 400;
-  private readonly canvasHeight = 400;
-  private readonly tankSize = 30;
-  private readonly moveSpeed = 40;
-  private readonly bulletSpeed = 8;
+  private readonly playersStore = inject(PlayersStore);
+  private readonly gameService = inject(GameService);
+  private readonly inputHandler = inject(InputHandlerService);
+  private readonly collisionService = inject(CollisionService);
+  private readonly renderingService = inject(RenderingService);
 
   private animationId: number | null = null;
+  private bulletFiredSub: Subscription | null = null;
+  private tileDestroyedSub: Subscription | null = null;
 
   tank: Tank = {
     id: 'player-1',
@@ -35,12 +43,34 @@ export class GameCanvasComponent implements AfterViewInit, OnDestroy {
   };
 
   bullets: Bullet[] = [];
+  remoteBullets: Bullet[] = [];
   private bulletIdCounter = 0;
+  private remoteBulletIdCounter = 0;
+
+  ngOnInit(): void {
+    if (!this.playersStore.isConnected()) {
+      this.playersStore.connect();
+    }
+
+    this.bulletFiredSub = this.gameService.onBulletFired().subscribe(({ playerId, x, y, direction }) => {
+      this.remoteBullets.push({
+        id: `remote-bullet-${++this.remoteBulletIdCounter}`,
+        position: { x, y },
+        direction: direction as Bullet['direction'],
+        speed: BULLET_SPEED,
+        active: true
+      });
+    });
+
+    this.tileDestroyedSub = this.gameService.onTileDestroyed().subscribe(({ tileX, tileY }) => {
+      this.mapStore.destroyTile(tileX, tileY);
+    });
+  }
 
   ngAfterViewInit(): void {
     const canvas = this.canvasRef.nativeElement;
-    canvas.width = this.canvasWidth;
-    canvas.height = this.canvasHeight;
+    canvas.width = CANVAS_WIDTH;
+    canvas.height = CANVAS_HEIGHT;
     this.startGameLoop();
   }
 
@@ -48,26 +78,19 @@ export class GameCanvasComponent implements AfterViewInit, OnDestroy {
     if (this.animationId) {
       cancelAnimationFrame(this.animationId);
     }
+    this.bulletFiredSub?.unsubscribe();
+    this.tileDestroyedSub?.unsubscribe();
   }
 
   @HostListener('window:keydown', ['$event'])
   handleKeyDown(event: KeyboardEvent): void {
-    const directionMap: { [key: string]: 'up' | 'down' | 'left' | 'right' } = {
-      ArrowUp: 'up', w: 'up', W: 'up',
-      ArrowDown: 'down', s: 'down', S: 'down',
-      ArrowLeft: 'left', a: 'left', A: 'left',
-      ArrowRight: 'right', d: 'right', D: 'right'
-    };
+    const action = this.inputHandler.parseKeyEvent(event);
+    if (!action) return;
 
-    const direction = directionMap[event.key];
-    if (direction) {
-      event.preventDefault();
-      this.moveTank(direction);
-      return;
-    }
-
-    if (event.key === ' ' || event.key === 'Space') {
-      event.preventDefault();
+    event.preventDefault();
+    if (action.type === 'move' && action.direction) {
+      this.moveTank(action.direction);
+    } else if (action.type === 'shoot') {
       this.shoot();
     }
   }
@@ -76,45 +99,37 @@ export class GameCanvasComponent implements AfterViewInit, OnDestroy {
     this.tank.direction = direction;
 
     const deltaMap = {
-      up: { x: 0, y: -this.moveSpeed },
-      down: { x: 0, y: this.moveSpeed },
-      left: { x: -this.moveSpeed, y: 0 },
-      right: { x: this.moveSpeed, y: 0 }
+      up: { x: 0, y: -MOVE_SPEED },
+      down: { x: 0, y: MOVE_SPEED },
+      left: { x: -MOVE_SPEED, y: 0 },
+      right: { x: MOVE_SPEED, y: 0 }
     };
 
     const delta = deltaMap[direction];
     const newX = this.tank.position.x + delta.x;
     const newY = this.tank.position.y + delta.y;
 
-    if (!this.checkCollision(newX, newY)) {
-      this.tank.position.x = Math.max(0, Math.min(this.canvasWidth - this.tankSize, newX));
-      this.tank.position.y = Math.max(0, Math.min(this.canvasHeight - this.tankSize, newY));
+    if (!this.collisionService.checkTankCollision(newX, newY, this.mapStore.tiles(), this.mapStore.tileSize())) {
+      this.tank.position.x = Math.max(0, Math.min(CANVAS_WIDTH - TANK_SIZE, newX));
+      this.tank.position.y = Math.max(0, Math.min(CANVAS_HEIGHT - TANK_SIZE, newY));
     }
+
+    this.broadcastMovement();
   }
 
-  private checkCollision(x: number, y: number): boolean {
-    const tiles = this.mapStore.tiles();
-    const tileSize = this.mapStore.tileSize();
+  private broadcastMovement(): void {
+    const localPlayerId = this.playersStore.localPlayerId();
+    if (!localPlayerId) return;
 
-    const corners = [
-      { x: x, y: y },
-      { x: x + this.tankSize - 1, y: y },
-      { x: x, y: y + this.tankSize - 1 },
-      { x: x + this.tankSize - 1, y: y + this.tankSize - 1 }
-    ];
+    const movement: MovementEvent = {
+      playerId: localPlayerId,
+      position: { x: this.tank.position.x, y: this.tank.position.y },
+      direction: this.tank.direction,
+      timestamp: Date.now()
+    };
 
-    for (const corner of corners) {
-      const tileX = Math.floor(corner.x / tileSize);
-      const tileY = Math.floor(corner.y / tileSize);
-
-      if (tileY >= 0 && tileY < tiles.length && tileX >= 0 && tileX < tiles[0].length) {
-        const tileType = tiles[tileY][tileX];
-        if (tileType === 1 || tileType === 2) {
-          return true;
-        }
-      }
-    }
-    return false;
+    this.playersStore.updatePlayerPosition(localPlayerId, movement.position, movement.direction);
+    this.playersStore.sendPlayerMove(movement);
   }
 
   private shoot(): void {
@@ -122,85 +137,73 @@ export class GameCanvasComponent implements AfterViewInit, OnDestroy {
 
     this.gameStore.decreaseAmmunition(1);
 
-    const bulletOffset = this.tankSize / 2 - 3;
+    const bulletOffset = TANK_SIZE / 2 - 3;
     let bulletX = this.tank.position.x + bulletOffset;
     let bulletY = this.tank.position.y + bulletOffset;
 
     switch (this.tank.direction) {
-      case 'up':
-        bulletY = this.tank.position.y - 10;
-        break;
-      case 'down':
-        bulletY = this.tank.position.y + this.tankSize;
-        break;
-      case 'left':
-        bulletX = this.tank.position.x - 10;
-        break;
-      case 'right':
-        bulletX = this.tank.position.x + this.tankSize;
-        break;
+      case 'up':    bulletY = this.tank.position.y - 10; break;
+      case 'down':  bulletY = this.tank.position.y + TANK_SIZE; break;
+      case 'left':  bulletX = this.tank.position.x - 10; break;
+      case 'right': bulletX = this.tank.position.x + TANK_SIZE; break;
     }
 
-    const bullet: Bullet = {
+    this.bullets.push({
       id: `bullet-${++this.bulletIdCounter}`,
       position: { x: bulletX, y: bulletY },
       direction: this.tank.direction,
-      speed: this.bulletSpeed,
+      speed: BULLET_SPEED,
       active: true
-    };
+    });
 
-    this.bullets.push(bullet);
+    const localPlayerId = this.playersStore.localPlayerId();
+    if (localPlayerId) {
+      this.gameService.sendBulletFired(localPlayerId, bulletX, bulletY, this.tank.direction);
+    }
   }
 
-  private updateBullets(): void {
+  private updateBulletArray(bullets: Bullet[], isLocal: boolean): Bullet[] {
     const tiles = this.mapStore.tiles();
     const tileSize = this.mapStore.tileSize();
 
-    for (const bullet of this.bullets) {
+    for (const bullet of bullets) {
       if (!bullet.active) continue;
 
       switch (bullet.direction) {
-        case 'up':
-          bullet.position.y -= bullet.speed;
-          break;
-        case 'down':
-          bullet.position.y += bullet.speed;
-          break;
-        case 'left':
-          bullet.position.x -= bullet.speed;
-          break;
-        case 'right':
-          bullet.position.x += bullet.speed;
-          break;
+        case 'up':    bullet.position.y -= bullet.speed; break;
+        case 'down':  bullet.position.y += bullet.speed; break;
+        case 'left':  bullet.position.x -= bullet.speed; break;
+        case 'right': bullet.position.x += bullet.speed; break;
       }
 
-      if (bullet.position.x < 0 || bullet.position.x > this.canvasWidth ||
-          bullet.position.y < 0 || bullet.position.y > this.canvasHeight) {
+      if (this.collisionService.isOutOfBounds(bullet.position.x, bullet.position.y)) {
         bullet.active = false;
         continue;
       }
 
-      const tileX = Math.floor(bullet.position.x / tileSize);
-      const tileY = Math.floor(bullet.position.y / tileSize);
+      const collision = this.collisionService.checkBulletTileCollision(
+        bullet.position.x, bullet.position.y, tiles, tileSize
+      );
 
-      if (tileY >= 0 && tileY < tiles.length && tileX >= 0 && tileX < tiles[0].length) {
-        const tileType = tiles[tileY][tileX];
-        if (tileType === 2) {
-          this.mapStore.destroyTile(tileX, tileY);
-          this.gameStore.incrementScore(10);
-          bullet.active = false;
-        } else if (tileType === 1) {
-          bullet.active = false;
+      if (collision.hit) {
+        if (collision.tileType === 2) {
+          this.mapStore.destroyTile(collision.tileX, collision.tileY);
+          if (isLocal) {
+            this.gameStore.incrementScore(10);
+            this.gameService.sendTileDestroyed(collision.tileX, collision.tileY);
+          }
         }
+        bullet.active = false;
       }
     }
 
-    this.bullets = this.bullets.filter(b => b.active);
+    return bullets.filter(b => b.active);
   }
 
   private startGameLoop(): void {
     const loop = () => {
-      this.updateBullets();
+      this.bullets = this.updateBulletArray(this.bullets, true);
+      this.remoteBullets = this.updateBulletArray(this.remoteBullets, false);
       this.draw();
       this.animationId = requestAnimationFrame(loop);
     };
@@ -208,73 +211,18 @@ export class GameCanvasComponent implements AfterViewInit, OnDestroy {
   }
 
   private draw(): void {
-    const canvas = this.canvasRef.nativeElement;
-    const ctx = canvas.getContext('2d');
+    const ctx = this.canvasRef.nativeElement.getContext('2d');
     if (!ctx) return;
 
-    ctx.fillStyle = '#000000';
-    ctx.fillRect(0, 0, this.canvasWidth, this.canvasHeight);
+    this.renderingService.clearCanvas(ctx);
+    this.renderingService.drawMap(ctx, this.mapStore.tiles(), this.mapStore.tileSize());
 
-    this.drawMap(ctx);
-    this.drawTank(ctx);
-    this.drawBullets(ctx);
-  }
-
-  private drawMap(ctx: CanvasRenderingContext2D): void {
-    const tiles = this.mapStore.tiles();
-    const tileSize = this.mapStore.tileSize();
-
-    for (let y = 0; y < tiles.length; y++) {
-      for (let x = 0; x < tiles[y].length; x++) {
-        const tileType = tiles[y][x];
-        if (tileType === 0) continue;
-
-        if (tileType === 1) {
-          ctx.fillStyle = '#404040';
-        } else if (tileType === 2) {
-          ctx.fillStyle = '#8B4513';
-        }
-
-        ctx.fillRect(x * tileSize, y * tileSize, tileSize, tileSize);
-
-        ctx.strokeStyle = '#222222';
-        ctx.strokeRect(x * tileSize, y * tileSize, tileSize, tileSize);
-      }
+    for (const player of this.playersStore.remotePlayers()) {
+      this.renderingService.drawRemoteTank(ctx, player);
     }
-  }
 
-  private drawTank(ctx: CanvasRenderingContext2D): void {
-    const { x, y } = this.tank.position;
-    const size = this.tankSize;
-    const centerX = x + size / 2;
-    const centerY = y + size / 2;
-
-    ctx.save();
-    ctx.translate(centerX, centerY);
-
-    const rotationMap = { up: -90, down: 90, left: 180, right: 0 };
-    const angle = (rotationMap[this.tank.direction] * Math.PI) / 180;
-    ctx.rotate(angle);
-
-    ctx.fillStyle = '#2d6a4f';
-    ctx.fillRect(-size / 2, -size / 2.5, size, size / 1.25);
-
-    ctx.fillStyle = '#1b4332';
-    ctx.fillRect(-size / 4, -size / 4, size / 2, size / 2);
-
-    ctx.fillStyle = '#40916c';
-    ctx.fillRect(size / 4, -3, size / 2.5, 6);
-
-    ctx.restore();
-  }
-
-  private drawBullets(ctx: CanvasRenderingContext2D): void {
-    ctx.fillStyle = '#ffff00';
-    for (const bullet of this.bullets) {
-      if (!bullet.active) continue;
-      ctx.beginPath();
-      ctx.arc(bullet.position.x, bullet.position.y, 4, 0, Math.PI * 2);
-      ctx.fill();
-    }
+    this.renderingService.drawLocalTank(ctx, this.tank);
+    this.renderingService.drawBullets(ctx, this.bullets);
+    this.renderingService.drawBullets(ctx, this.remoteBullets);
   }
 }

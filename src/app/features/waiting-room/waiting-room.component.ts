@@ -1,11 +1,10 @@
 import { Component, EventEmitter, OnDestroy, OnInit, Output, effect, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Subscription } from 'rxjs';
+import { Router } from '@angular/router';
+import { finalize, Subscription } from 'rxjs';
 import { Player } from '../../core/models/player.model';
 import { PlayersStore } from '../../store/players/players.store';
-import { ChatService } from '../../core/services/chat.service';
-import { ChatMessage } from '../../core/models/chat-message.model';
 import { RoomService } from '../../core/services/room.service';
 import { RoomResponse } from '../../core/models/room.model';
 
@@ -18,20 +17,24 @@ import { RoomResponse } from '../../core/models/room.model';
 })
 export class WaitingRoomComponent implements OnInit, OnDestroy {
   private readonly playersStore = inject(PlayersStore);
-  private readonly chatService = inject(ChatService);
   private readonly roomService = inject(RoomService);
+  private readonly router = inject(Router);
   private readonly knownPlayerIds = new Set<string>();
-  private chatSubscription: Subscription | null = null;
 
   readonly players = this.playersStore.playersList;
   readonly localPlayer = this.playersStore.localPlayer;
-  readonly messages: ChatMessage[] = [];
+  readonly chatMessages = this.playersStore.chatMessages;
 
   rooms: RoomResponse[] = [];
   newRoomName = '';
   selectedMap = 'desert';
   errorMessage = '';
   messageText = '';
+  loading = false;
+
+  currentRoom: RoomResponse | null = null;
+  isHost = false;
+  private gameStartedSub: Subscription | null = null;
 
   @Output() playerJoined = new EventEmitter<Player>();
 
@@ -49,51 +52,99 @@ export class WaitingRoomComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.playersStore.connect();
-    this.chatService.connect();
-    this.chatSubscription = this.chatService.onMessage().subscribe((message) => {
-      this.messages.push(message);
-    });
     this.loadRooms();
+
+    this.gameStartedSub = this.playersStore.onGameStarted().subscribe((mapName) => {
+      this.router.navigate(['/game'], { queryParams: { map: mapName } });
+    });
   }
 
   ngOnDestroy(): void {
+    this.gameStartedSub?.unsubscribe();
+
+    if (this.currentRoom) {
+      this.roomService.leaveRoom(this.currentRoom.id).subscribe();
+      this.playersStore.leaveRoom();
+    }
+
     this.playersStore.disconnect();
-    this.chatSubscription?.unsubscribe();
-    this.chatService.disconnect();
     this.knownPlayerIds.clear();
   }
 
   loadRooms(): void {
     this.roomService.getRooms().subscribe({
       next: (rooms) => this.rooms = rooms,
-      error: () => this.errorMessage = 'Error al cargar salas'
+      error: () => this.errorMessage = 'Error loading rooms'
     });
   }
 
   createRoom(): void {
-    if (!this.newRoomName.trim()) return;
+    if (!this.newRoomName.trim() || this.loading) return;
+    this.loading = true;
 
-    this.roomService.createRoom(this.newRoomName, this.selectedMap).subscribe({
+    this.roomService.createRoom(this.newRoomName, this.selectedMap).pipe(
+      finalize(() => this.loading = false)
+    ).subscribe({
       next: (room) => {
-        this.rooms.push(room);
+        this.rooms = [...this.rooms, room];
+        this.currentRoom = room;
+        this.isHost = true;
         this.newRoomName = '';
       },
-      error: () => this.errorMessage = 'Error al crear sala'
+      error: () => this.errorMessage = 'Error creating room'
     });
   }
 
-  joinRoom(roomId: number): void {
-    this.roomService.joinRoom(roomId).subscribe({
+  joinRoom(room: RoomResponse): void {
+    if (this.loading) return;
+    this.loading = true;
+
+    this.roomService.joinRoom(room.id).pipe(
+      finalize(() => this.loading = false)
+    ).subscribe({
       next: () => {
-        this.loadRooms();
+        this.currentRoom = room;
+        this.isHost = false;
       },
       error: (err) => {
-        if (err.status === 400) {
-          this.errorMessage = 'Sala llena o no disponible';
+        if (err.status === 409) {
+          this.errorMessage = 'Room full or unavailable';
+        } else if (err.status === 401) {
+          this.errorMessage = 'Authentication required';
         } else {
-          this.errorMessage = 'Error al unirse a la sala';
+          this.errorMessage = 'Error joining room';
         }
       }
+    });
+  }
+
+  leaveRoom(): void {
+    if (this.currentRoom) {
+      this.roomService.leaveRoom(this.currentRoom.id).subscribe({
+        next: () => this.loadRooms(),
+        error: () => this.loadRooms()
+      });
+      this.playersStore.leaveRoom();
+    }
+    this.currentRoom = null;
+    this.isHost = false;
+  }
+
+  startGame(): void {
+    if (!this.currentRoom) return;
+    const mapName = this.currentRoom.mapName ?? this.selectedMap;
+    this.playersStore.startGame(mapName);
+  }
+
+  deleteRoom(roomId: number): void {
+    if (this.loading) return;
+    this.loading = true;
+
+    this.roomService.deleteRoom(roomId).pipe(
+      finalize(() => this.loading = false)
+    ).subscribe({
+      next: () => this.rooms = this.rooms.filter(r => r.id !== roomId),
+      error: () => this.errorMessage = 'Error deleting room'
     });
   }
 
@@ -101,15 +152,8 @@ export class WaitingRoomComponent implements OnInit, OnDestroy {
     const trimmedMessage = this.messageText.trim();
     if (!trimmedMessage) return;
 
-    const senderName = this.localPlayer()?.name ?? 'You';
-    const message: ChatMessage = {
-      sender: senderName,
-      text: trimmedMessage,
-      timestamp: Date.now()
-    };
-
-    this.messages.push(message);
-    this.chatService.sendMessage(message);
+    const senderName = this.localPlayer()?.name ?? 'Player';
+    this.playersStore.sendChatMessage(senderName, trimmedMessage);
     this.messageText = '';
   }
 }

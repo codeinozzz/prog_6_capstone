@@ -14,7 +14,10 @@ export class AuthService {
       email,
       password
     }).pipe(
-      tap(response => localStorage.setItem('auth_token', response.token))
+      tap(response => {
+        localStorage.setItem('auth_token', response.token);
+        localStorage.setItem('username', response.username);
+      })
     );
   }
 
@@ -23,12 +26,20 @@ export class AuthService {
       username,
       password
     }).pipe(
-      tap(response => localStorage.setItem('auth_token', response.token))
+      tap(response => {
+        localStorage.setItem('auth_token', response.token);
+        localStorage.setItem('username', response.username);
+      })
     );
   }
 
   logout(): void {
     localStorage.removeItem('auth_token');
+    localStorage.removeItem('username');
+  }
+
+  getUsername(): string | null {
+    return localStorage.getItem('username');
   }
 
   isAuthenticated(): boolean {
