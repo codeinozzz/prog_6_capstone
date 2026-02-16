@@ -91,6 +91,35 @@ export class GameService {
       .catch(err => console.error('[SignalR] TileDestroyed error:', err));
   }
 
+  collectPowerUp(powerUpId: string): void {
+    this.connection.invoke('CollectPowerUp', powerUpId)
+      .catch(err => console.error('[SignalR] CollectPowerUp error:', err));
+  }
+
+  reportCollision(victimId: string, damage: number): void {
+    this.connection.invoke('ReportCollision', victimId, damage)
+      .catch(err => console.error('[SignalR] ReportCollision error:', err));
+  }
+
+  endGame(winnerId: string, winnerName: string): void {
+    this.connection.invoke('EndGame', winnerId, winnerName)
+      .catch(err => console.error('[SignalR] EndGame error:', err));
+  }
+
+  onRoomHistory(): Observable<any[]> {
+    return new Observable(observer => {
+      this.connection.on('RoomHistory', (history: any[]) => observer.next(history));
+    });
+  }
+
+  onGameOver(): Observable<{ winnerId: string; winnerName: string }> {
+    return new Observable(observer => {
+      this.connection.on('GameOver', (winnerId: string, winnerName: string) => {
+        observer.next({ winnerId, winnerName });
+      });
+    });
+  }
+
   onGameStarted(): Observable<string> {
     return this.gameStartedSubject.asObservable();
   }
