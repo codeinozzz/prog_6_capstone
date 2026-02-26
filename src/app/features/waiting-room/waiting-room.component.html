@@ -69,6 +69,21 @@
       <button class="waiting-room__button waiting-room__button--start" (click)="startGame()">
         Start Game
       </button>
+
+      <!-- Historial de la sala (Redis) -->
+      @if (roomHistory.length > 0) {
+        <div class="waiting-room__history">
+          <h3>Room History (via Redis)</h3>
+          <ul class="waiting-room__history-list">
+            @for (event of roomHistory; track event.timestamp) {
+              <li class="waiting-room__history-item">
+                <span class="waiting-room__history-type">{{ event.type }}</span>
+                <span class="waiting-room__history-text">{{ formatHistoryPayload(event) }}</span>
+              </li>
+            }
+          </ul>
+        </div>
+      }
     </div>
   }
 
