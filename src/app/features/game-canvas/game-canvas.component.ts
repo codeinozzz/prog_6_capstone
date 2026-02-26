@@ -69,8 +69,8 @@ export class GameCanvasComponent implements AfterViewInit, OnInit, OnDestroy {
       this.playersStore.connect();
     }
 
-    // Conectar MQTT a la misma sala actual
-    const roomId = this.playersStore.localPlayerId() ?? 'default';
+    // Conectar MQTT a la sala actual (roomId guardado al unirse en waiting-room)
+    const roomId = localStorage.getItem('currentRoomId') ?? 'default';
     this.mqttStore.connectToRoom(roomId);
 
     // SignalR — bullet recibido (medir latencia)

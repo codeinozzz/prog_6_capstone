@@ -28,6 +28,9 @@ export class MqttService implements OnDestroy {
   private readonly TOPIC_PREFIX = 'battletanks';
 
   connect(roomId: string): void {
+    if (this.client?.connected && this.currentRoomId === roomId) return;
+
+    this.client?.end(true);
     this.currentRoomId = roomId;
 
     this.client = mqtt.connect(this.BROKER_WS, {
@@ -131,6 +134,10 @@ export class MqttService implements OnDestroy {
   private handleMessage(topic: string, raw: string): void {
     try {
       const payload = JSON.parse(raw);
+      const receivedAt = Date.now();
+      const sentAt: number = payload.timestamp ?? payload.sentAt ?? receivedAt;
+      const latency = receivedAt - sentAt;
+      console.log(`[MQTT] ${topic} | latency: ${latency}ms`);
 
       if (topic.endsWith('/powerup/spawned')) {
         this.powerUpSpawned$.next(payload as PowerUpEvent);
