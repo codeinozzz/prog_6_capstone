@@ -48,6 +48,7 @@ export class WaitingRoomComponent implements OnInit, OnDestroy {
   currentRoom: RoomResponse | null = null;
   isHost = false;
   roomHistory: RoomHistoryEvent[] = [];
+  private isNavigatingToGame = false;
 
   private gameStartedSub: Subscription | null = null;
   private historySub: Subscription | null = null;
@@ -71,6 +72,7 @@ export class WaitingRoomComponent implements OnInit, OnDestroy {
     this.loadRooms();
 
     this.gameStartedSub = this.playersStore.onGameStarted().subscribe((mapName) => {
+      this.isNavigatingToGame = true;
       this.router.navigate(['/game'], { queryParams: { map: mapName } });
     });
 
@@ -84,13 +86,15 @@ export class WaitingRoomComponent implements OnInit, OnDestroy {
     this.gameStartedSub?.unsubscribe();
     this.historySub?.unsubscribe();
 
-    if (this.currentRoom) {
+    if (this.currentRoom && !this.isNavigatingToGame) {
       this.roomService.leaveRoom(this.currentRoom.id).subscribe();
       this.playersStore.leaveRoom();
       this.mqttStore.disconnect();
     }
 
-    this.playersStore.disconnect();
+    if (!this.isNavigatingToGame) {
+      this.playersStore.disconnect();
+    }
     this.knownPlayerIds.clear();
   }
 
@@ -113,6 +117,7 @@ export class WaitingRoomComponent implements OnInit, OnDestroy {
         this.currentRoom = room;
         this.isHost = true;
         this.newRoomName = '';
+        localStorage.setItem('currentRoomId', room.id.toString());
         this.loadRoomHistory(room.id.toString());
         this.mqttStore.connectToRoom(room.id.toString());
       },
@@ -130,6 +135,7 @@ export class WaitingRoomComponent implements OnInit, OnDestroy {
       next: () => {
         this.currentRoom = room;
         this.isHost = false;
+        localStorage.setItem('currentRoomId', room.id.toString());
         this.loadRoomHistory(room.id.toString());
         this.mqttStore.connectToRoom(room.id.toString());
       },
