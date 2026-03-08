@@ -1,4 +1,4 @@
-import { AfterViewInit, Component, ElementRef, HostListener, inject, OnDestroy, OnInit, ViewChild } from '@angular/core';
+import { AfterViewInit, ChangeDetectionStrategy, Component, ElementRef, HostListener, inject, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Subscription } from 'rxjs';
 import { MapStore, GameStore, PlayersStore, MqttEventsStore } from '../../store';
@@ -20,7 +20,8 @@ const POWERUP_SIZE = 20;
   standalone: true,
   imports: [CommonModule],
   templateUrl: './game-canvas.component.html',
-  styleUrls: ['./game-canvas.component.scss']
+  styleUrls: ['./game-canvas.component.scss'],
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class GameCanvasComponent implements AfterViewInit, OnInit, OnDestroy {
   @ViewChild('gameCanvas', { static: true })

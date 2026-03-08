@@ -1,4 +1,4 @@
-import { Component, EventEmitter, OnDestroy, OnInit, Output, effect, inject } from '@angular/core';
+import { ChangeDetectionStrategy, ChangeDetectorRef, Component, EventEmitter, OnDestroy, OnInit, Output, effect, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -23,7 +23,8 @@ interface RoomHistoryEvent {
   standalone: true,
   imports: [CommonModule, FormsModule],
   templateUrl: './waiting-room.component.html',
-  styleUrls: ['./waiting-room.component.scss']
+  styleUrls: ['./waiting-room.component.scss'],
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class WaitingRoomComponent implements OnInit, OnDestroy {
   private readonly playersStore = inject(PlayersStore);
@@ -32,6 +33,7 @@ export class WaitingRoomComponent implements OnInit, OnDestroy {
   private readonly gameService = inject(GameService);
   private readonly http = inject(HttpClient);
   private readonly router = inject(Router);
+  private readonly cdr = inject(ChangeDetectorRef);
   private readonly knownPlayerIds = new Set<string>();
 
   readonly players = this.playersStore.playersList;
@@ -100,8 +102,8 @@ export class WaitingRoomComponent implements OnInit, OnDestroy {
 
   loadRooms(): void {
     this.roomService.getRooms().subscribe({
-      next: (rooms) => this.rooms = rooms,
-      error: () => this.errorMessage = 'Error loading rooms'
+      next: (rooms) => { this.rooms = rooms; this.cdr.markForCheck(); },
+      error: () => { this.errorMessage = 'Error loading rooms'; this.cdr.markForCheck(); }
     });
   }
 
@@ -120,8 +122,9 @@ export class WaitingRoomComponent implements OnInit, OnDestroy {
         localStorage.setItem('currentRoomId', room.id.toString());
         this.loadRoomHistory(room.id.toString());
         this.mqttStore.connectToRoom(room.id.toString());
+        this.cdr.markForCheck();
       },
-      error: () => this.errorMessage = 'Error creating room'
+      error: () => { this.errorMessage = 'Error creating room'; this.cdr.markForCheck(); }
     });
   }
 
@@ -138,6 +141,7 @@ export class WaitingRoomComponent implements OnInit, OnDestroy {
         localStorage.setItem('currentRoomId', room.id.toString());
         this.loadRoomHistory(room.id.toString());
         this.mqttStore.connectToRoom(room.id.toString());
+        this.cdr.markForCheck();
       },
       error: (err) => {
         if (err.status === 409) {
@@ -147,6 +151,7 @@ export class WaitingRoomComponent implements OnInit, OnDestroy {
         } else {
           this.errorMessage = 'Error joining room';
         }
+        this.cdr.markForCheck();
       }
     });
   }
@@ -176,10 +181,10 @@ export class WaitingRoomComponent implements OnInit, OnDestroy {
     this.loading = true;
 
     this.roomService.deleteRoom(roomId).pipe(
-      finalize(() => this.loading = false)
+      finalize(() => { this.loading = false; this.cdr.markForCheck(); })
     ).subscribe({
-      next: () => this.rooms = this.rooms.filter(r => r.id !== roomId),
-      error: () => this.errorMessage = 'Error deleting room'
+      next: () => { this.rooms = this.rooms.filter(r => r.id !== roomId); this.cdr.markForCheck(); },
+      error: () => { this.errorMessage = 'Error deleting room'; this.cdr.markForCheck(); }
     });
   }
 
@@ -196,7 +201,7 @@ export class WaitingRoomComponent implements OnInit, OnDestroy {
   private loadRoomHistory(roomId: string): void {
     this.http.get<RoomHistoryEvent[]>(`http://localhost:5174/api/history/${roomId}?count=20`)
       .subscribe({
-        next: (events) => this.roomHistory = events,
+        next: (events) => { this.roomHistory = events; this.cdr.markForCheck(); },
         error: () => console.warn('[History] Redis not available')
       });
   }

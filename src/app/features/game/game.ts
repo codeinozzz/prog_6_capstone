@@ -1,4 +1,4 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
@@ -11,6 +11,7 @@ import { PlayersStore, MapStore } from '../../store';
   imports: [CommonModule, FormsModule, PlayerHub, GameCanvasComponent],
   templateUrl: './game.html',
   styleUrl: './game.scss',
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class Game implements OnInit {
   private readonly playersStore = inject(PlayersStore);
