@@ -38,9 +38,8 @@ export const MqttEventsStore = signalStore(
   withMethods((store, mqttService = inject(MqttService)) => ({
     connectToRoom(roomId: string): void {
       mqttService.connect(roomId);
-      patchState(store, { isConnected: true });
+      patchState(store, { isConnected: true, activePowerUps: [] });
 
-      // Power-up aparece
       mqttService.powerUpSpawned$.subscribe((pu) => {
         patchState(store, (s) => ({
           activePowerUps: [...s.activePowerUps, { ...pu, active: true }],
@@ -48,7 +47,6 @@ export const MqttEventsStore = signalStore(
         }));
       });
 
-      // Power-up recogido — desactivarlo
       mqttService.powerUpCollected$.subscribe((ev) => {
         patchState(store, (s) => ({
           activePowerUps: s.activePowerUps.map((p) =>
@@ -57,6 +55,11 @@ export const MqttEventsStore = signalStore(
           lastEvent: `powerup_collected:${ev.powerUpId}`,
         }));
       });
+    },
+
+    initializePowerUps(powerUps: PowerUpEvent[]): void {
+      const active = powerUps.map(pu => ({ ...pu, active: true }));
+      patchState(store, { activePowerUps: active });
     },
 
     disconnect(): void {
@@ -84,8 +87,7 @@ export const MqttEventsStore = signalStore(
         count++;
         if (count >= iterations) {
           clearInterval(interval);
-          // Dar 200ms para recibir las respuestas, luego actualizar
-          setTimeout(() => {
+            setTimeout(() => {
             const samples = [...mqttService.latencySamples];
             patchState(store, { latencySamples: samples });
           }, 200);

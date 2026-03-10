@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { TileType } from '../../../core/models/map.model';
-import { CANVAS_WIDTH, CANVAS_HEIGHT, TANK_SIZE } from '../constants/game.constants';
+import { CANVAS_WIDTH, CANVAS_HEIGHT, TANK_SIZE, BULLET_RADIUS } from '../constants/game.constants';
 
 @Injectable({ providedIn: 'root' })
 export class CollisionService {
@@ -43,5 +43,18 @@ export class CollisionService {
 
   isOutOfBounds(x: number, y: number): boolean {
     return x < 0 || x > CANVAS_WIDTH || y < 0 || y > CANVAS_HEIGHT;
+  }
+
+  checkBulletTankCollision(
+    bulletX: number, bulletY: number,
+    tankX: number, tankY: number
+  ): boolean {
+    const hitbox = BULLET_RADIUS + 2;
+    return (
+      bulletX + hitbox > tankX &&
+      bulletX - hitbox < tankX + TANK_SIZE &&
+      bulletY + hitbox > tankY &&
+      bulletY - hitbox < tankY + TANK_SIZE
+    );
   }
 }

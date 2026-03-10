@@ -1,44 +1,39 @@
 .game-container {
-  padding: 24px;
-  max-width: 900px;
-  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
   background: #0a0a0a;
-  min-height: 100vh;
-}
-
-.game-title {
-  text-align: center;
-  font-size: 32px;
-  color: #00ff00;
-  margin: 0 0 20px;
-  font-family: monospace;
-  text-transform: uppercase;
-  letter-spacing: 4px;
-  text-shadow: 0 0 10px #00ff00;
+  position: relative;
 }
 
 .game-layout {
   display: flex;
-  gap: 16px;
-  align-items: flex-start;
+  flex: 1;
+  min-height: 0;
+  gap: 0;
 }
 
+/* Panel de chat lateral */
 .game-chat {
-  width: 280px;
+  width: 260px;
+  flex-shrink: 0;
   background: #111;
-  border: 2px solid #00ff00;
+  border-left: 2px solid #00ff00;
   padding: 12px;
   display: flex;
   flex-direction: column;
-  height: 460px;
   font-family: monospace;
+  overflow: hidden;
 }
 
 .game-chat__title {
   color: #00ff00;
-  font-size: 16px;
+  font-size: 14px;
   margin: 0 0 8px;
   text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 2px;
 }
 
 .game-chat__status {
@@ -46,6 +41,8 @@
   justify-content: space-between;
   margin-bottom: 8px;
   font-size: 11px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #1a1a1a;
 }
 
 .game-chat__connected {
@@ -63,26 +60,36 @@
 .game-chat__messages {
   flex: 1;
   overflow-y: auto;
-  border: 1px solid #333;
-  padding: 8px;
+  padding: 4px 0;
   margin-bottom: 8px;
-  background: #0a0a0a;
+
+  &::-webkit-scrollbar { width: 4px; }
+  &::-webkit-scrollbar-track { background: #0a0a0a; }
+  &::-webkit-scrollbar-thumb { background: #333; border-radius: 2px; }
 }
 
 .game-chat__message {
-  margin: 0 0 4px;
+  margin: 0 0 6px;
   color: #ccc;
   font-size: 12px;
   word-break: break-word;
+  line-height: 1.4;
 
   strong {
     color: #00ff00;
   }
 }
 
+.game-chat__empty {
+  color: #333;
+  font-size: 11px;
+  font-style: italic;
+  margin: 0;
+}
+
 .game-chat__form {
   display: flex;
-  gap: 6px;
+  gap: 4px;
 }
 
 .game-chat__input {
@@ -94,9 +101,14 @@
   font-family: monospace;
   font-size: 12px;
   outline: none;
+  min-width: 0;
 
   &:focus {
     border-color: #00ff00;
+  }
+
+  &::placeholder {
+    color: #444;
   }
 }
 
@@ -104,11 +116,77 @@
   background: #00ff00;
   color: #000;
   border: none;
-  padding: 6px 12px;
+  padding: 6px 10px;
   font-family: monospace;
-  font-size: 12px;
+  font-size: 14px;
   cursor: pointer;
   font-weight: bold;
+  flex-shrink: 0;
+
+  &:hover {
+    background: #00cc00;
+  }
+}
+
+/* Overlay ganador */
+.game-winner-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.75);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.game-winner-box {
+  background: #0a0a0a;
+  border: 2px solid #00ff00;
+  padding: 40px 60px;
+  text-align: center;
+  font-family: monospace;
+  box-shadow: 0 0 40px rgba(0, 255, 0, 0.3);
+}
+
+.game-winner-trophy {
+  font-size: 64px;
+  margin-bottom: 16px;
+}
+
+.game-winner-title {
+  font-size: 48px;
+  margin: 0 0 16px;
+  color: #cc0000;
+  letter-spacing: 4px;
+  text-transform: uppercase;
+
+  &--you {
+    color: #00ff00;
+    text-shadow: 0 0 20px #00ff00;
+  }
+}
+
+.game-winner-name {
+  color: #ccc;
+  font-size: 18px;
+  margin: 0 0 32px;
+
+  strong {
+    color: #ffcc00;
+  }
+}
+
+.game-winner-btn {
+  background: #00ff00;
+  color: #000;
+  border: none;
+  padding: 12px 32px;
+  font-family: monospace;
+  font-size: 16px;
+  font-weight: bold;
+  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: 2px;
 
   &:hover {
     background: #00cc00;

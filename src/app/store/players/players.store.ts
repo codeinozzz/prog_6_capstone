@@ -43,6 +43,7 @@ export const PlayersStore = signalStore(
     let playerJoinedSub: Subscription | null = null;
     let playerLeftSub: Subscription | null = null;
     let existingPlayersSub: Subscription | null = null;
+    let connectionLostSub: Subscription | null = null;
 
     const addPlayer = (player: Player): void => {
       patchState(store, {
@@ -87,7 +88,7 @@ export const PlayersStore = signalStore(
 
     let playerName = 'Player';
     let currentRoomId: string | null = null;
-    let localInitialPosition = { x: 250, y: 250 };
+    let localInitialPosition = { x: 40, y: 40 };
 
     const connect = (name?: string, roomId?: string): void => {
       if (store.isConnected()) return;
@@ -168,6 +169,11 @@ export const PlayersStore = signalStore(
           }
         }
       });
+
+      connectionLostSub?.unsubscribe();
+      connectionLostSub = gameService.onConnectionLost().subscribe(() => {
+        patchState(store, { isConnected: false });
+      });
     };
 
     const disconnect = (): void => {
@@ -177,12 +183,14 @@ export const PlayersStore = signalStore(
       playerJoinedSub?.unsubscribe();
       playerLeftSub?.unsubscribe();
       existingPlayersSub?.unsubscribe();
+      connectionLostSub?.unsubscribe();
       movementSub = null;
       connectionSub = null;
       chatSub = null;
       playerJoinedSub = null;
       playerLeftSub = null;
       existingPlayersSub = null;
+      connectionLostSub = null;
       gameService.disconnect();
       currentRoomId = null;
       patchState(store, initialState);

@@ -10,7 +10,7 @@ import { MqttService } from '../../core/services/mqtt.service';
 import { InputHandlerService } from './services/input-handler.service';
 import { CollisionService } from './services/collision.service';
 import { RenderingService } from './services/rendering.service';
-import { CANVAS_WIDTH, CANVAS_HEIGHT, TANK_SIZE, MOVE_SPEED, BULLET_SPEED } from './constants/game.constants';
+import { TANK_SIZE, MOVE_SPEED, BULLET_SPEED, CANVAS_WIDTH, CANVAS_HEIGHT, MapTheme } from './constants/game.constants';
 import type { PowerUpEvent } from '../../core/models/mqtt-event.model';
 
 const POWERUP_SIZE = 20;
@@ -40,17 +40,27 @@ export class GameCanvasComponent implements AfterViewInit, OnInit, OnDestroy {
   private animationId: number | null = null;
   private bulletFiredSub: Subscription | null = null;
   private tileDestroyedSub: Subscription | null = null;
+  private playerDiedSub: Subscription | null = null;
+  private playerHitSub: Subscription | null = null;
+  private initialPowerUpsSub: Subscription | null = null;
   private mqttSubs: Subscription[] = [];
+  private gameEnded = false;
 
-  // Colores de power-ups por tipo
   private readonly POWERUP_COLORS: Record<string, string> = {
     ammo: '#ffcc00',
     health: '#00cc44',
     speed: '#00aaff',
   };
 
+  private readonly SPAWN_POSITIONS = [
+    { x: 40,  y: 40  },
+    { x: 330, y: 330 },
+    { x: 40,  y: 330 },
+    { x: 330, y: 40  },
+  ];
+
   tank: Tank = {
-    id: 'player-1',
+    id: 'player-local',
     position: { x: 40, y: 40 },
     direction: 'right',
     health: 100,
@@ -62,7 +72,6 @@ export class GameCanvasComponent implements AfterViewInit, OnInit, OnDestroy {
   private bulletIdCounter = 0;
   private remoteBulletIdCounter = 0;
 
-  // Benchmarking SignalR: timestamps de eventos clave
   private signalREventTimes: number[] = [];
 
   ngOnInit(): void {
@@ -70,11 +79,20 @@ export class GameCanvasComponent implements AfterViewInit, OnInit, OnDestroy {
       this.playersStore.connect();
     }
 
-    // Conectar MQTT a la sala actual (roomId guardado al unirse en waiting-room)
+    this.gameStore.resetGame();
+    this.gameEnded = false;
+
+    const isHost = localStorage.getItem('isHost') !== 'false';
+    const spawnIndex = isHost ? 0 : Math.min(this.playersStore.remotePlayers().length, this.SPAWN_POSITIONS.length - 1);
+    this.tank.position = { ...this.SPAWN_POSITIONS[spawnIndex] };
+
     const roomId = localStorage.getItem('currentRoomId') ?? 'default';
     this.mqttStore.connectToRoom(roomId);
 
-    // SignalR — bullet recibido (medir latencia)
+    this.initialPowerUpsSub = this.gameService.onInitialPowerUps().subscribe((powerUps) => {
+      this.mqttStore.initializePowerUps(powerUps);
+    });
+
     this.bulletFiredSub = this.gameService.onBulletFired().subscribe(({ playerId, x, y, direction }) => {
       this.signalREventTimes.push(Date.now());
       this.remoteBullets.push({
@@ -90,23 +108,38 @@ export class GameCanvasComponent implements AfterViewInit, OnInit, OnDestroy {
       this.mapStore.destroyTile(tileX, tileY);
     });
 
-    // MQTT — colisión recibida
+    this.playerHitSub = this.gameService.onPlayerHit().subscribe(({ damage }) => {
+      this.applyDamage(damage);
+    });
+
+    this.playerDiedSub = this.gameService.onPlayerDied().subscribe(({ victimId }) => {
+      this.playersStore.removePlayer(victimId);
+
+      if (this.playersStore.remotePlayers().length === 0
+          && this.gameStore.playerStatus() !== 'dead'
+          && !this.gameEnded) {
+        this.gameEnded = true;
+        const localId = this.playersStore.localPlayerId() ?? '';
+        const localName = localStorage.getItem('username') ?? 'Player';
+        const finalScore = this.gameStore.score();
+        this.gameService.endGame(localId, localName, finalScore);
+      }
+    });
+
     this.mqttSubs.push(
       this.mqttService.collision$.subscribe((ev) => {
         if (ev.victimId === this.playersStore.localPlayerId()) {
-          this.gameStore.decreaseHealth(ev.damage);
+          this.applyDamage(ev.damage);
         }
       })
     );
 
-    // MQTT — fin de partida
     this.mqttSubs.push(
       this.mqttService.gameEnd$.subscribe((ev) => {
         console.log('[MQTT] Game over! Winner:', ev.winnerName);
       })
     );
 
-    // Benchmark periódico: enviar ping MQTT cada 5s
     const benchInterval = setInterval(() => {
       this.mqttService.sendBenchmarkPing(roomId);
     }, 5000);
@@ -114,10 +147,17 @@ export class GameCanvasComponent implements AfterViewInit, OnInit, OnDestroy {
   }
 
   ngAfterViewInit(): void {
-    const canvas = this.canvasRef.nativeElement;
-    canvas.width = CANVAS_WIDTH;
-    canvas.height = CANVAS_HEIGHT;
+    this.resizeCanvas();
     this.startGameLoop();
+    this.broadcastMovement();
+  }
+
+  @HostListener('window:resize')
+  resizeCanvas(): void {
+    const canvas = this.canvasRef.nativeElement;
+    const rect = canvas.getBoundingClientRect();
+    canvas.width = rect.width || canvas.offsetWidth || window.innerWidth;
+    canvas.height = rect.height || canvas.offsetHeight || window.innerHeight;
   }
 
   ngOnDestroy(): void {
@@ -126,10 +166,12 @@ export class GameCanvasComponent implements AfterViewInit, OnInit, OnDestroy {
     }
     this.bulletFiredSub?.unsubscribe();
     this.tileDestroyedSub?.unsubscribe();
+    this.playerDiedSub?.unsubscribe();
+    this.playerHitSub?.unsubscribe();
+    this.initialPowerUpsSub?.unsubscribe();
     this.mqttSubs.forEach((s) => s.unsubscribe());
     this.mqttStore.disconnect();
 
-    // Log latency stats on destroy
     const stats = this.mqttService.getLatencyStats();
     console.log('[Benchmark] MQTT latency stats:', stats);
     console.log('[Benchmark] SignalR events received:', this.signalREventTimes.length);
@@ -149,6 +191,8 @@ export class GameCanvasComponent implements AfterViewInit, OnInit, OnDestroy {
   }
 
   private moveTank(direction: 'up' | 'down' | 'left' | 'right'): void {
+    if (this.gameStore.playerStatus() === 'dead') return;
+
     this.tank.direction = direction;
 
     const deltaMap = {
@@ -187,6 +231,7 @@ export class GameCanvasComponent implements AfterViewInit, OnInit, OnDestroy {
   }
 
   private shoot(): void {
+    if (this.gameStore.playerStatus() === 'dead') return;
     if (this.gameStore.ammunition() <= 0) return;
 
     this.gameStore.decreaseAmmunition(1);
@@ -216,21 +261,18 @@ export class GameCanvasComponent implements AfterViewInit, OnInit, OnDestroy {
     }
   }
 
-  /** Detectar si el tanque local está sobre un power-up activo */
   private checkPowerUpCollection(): void {
     const activePowerUps = this.mqttStore.activePowerUps().filter((p) => p.active);
     const localId = this.playersStore.localPlayerId() ?? '';
-    const roomId = this.playersStore.localPlayerId() ?? 'default';
+    const roomId = localStorage.getItem('currentRoomId') ?? 'default';
 
     for (const pu of activePowerUps) {
       const dx = Math.abs(this.tank.position.x - pu.x);
       const dy = Math.abs(this.tank.position.y - pu.y);
 
       if (dx < TANK_SIZE && dy < TANK_SIZE) {
-        // Aplicar efecto
         this.applyPowerUp(pu);
-
-        // Notificar via MQTT + SignalR
+        this.gameStore.incrementScore(25);
         this.mqttService.publishPowerUpCollected(roomId, pu.id, localId);
         this.gameService.collectPowerUp(pu.id);
         this.mqttStore.removePowerUp(pu.id);
@@ -238,18 +280,37 @@ export class GameCanvasComponent implements AfterViewInit, OnInit, OnDestroy {
     }
   }
 
+  private applyDamage(damage: number): void {
+    if (this.gameStore.playerStatus() === 'dead') return;
+
+    this.gameStore.decreaseHealth(damage);
+    const newHealth = this.gameStore.health();
+
+    if (newHealth <= 0) {
+      this.gameStore.setPlayerStatus('dead');
+      const localId = this.playersStore.localPlayerId() ?? '';
+      const localName = localStorage.getItem('username') ?? 'Player';
+      this.gameService.playerDied(localId, localName, '', '');
+      this.gameService.submitScore(localName, this.gameStore.score());
+    } else if (newHealth < 40) {
+      this.gameStore.setPlayerStatus('injured');
+    }
+  }
+
   private applyPowerUp(pu: PowerUpEvent): void {
     switch (pu.type) {
       case 'ammo':
-        this.gameStore.decreaseAmmunition(-10); // añadir 10 balas
+        this.gameStore.decreaseAmmunition(-10);
         console.log('[PowerUp] +10 ammo');
         break;
       case 'health':
-        this.gameStore.decreaseHealth(-25); // recuperar 25 HP (decreaseHealth acepta negativos)
+        this.gameStore.decreaseHealth(-25);
+        if (this.gameStore.health() >= 40) {
+          this.gameStore.setPlayerStatus('alive');
+        }
         console.log('[PowerUp] +25 health');
         break;
       case 'speed':
-        // La velocidad es constante en este juego, el efecto es visual
         console.log('[PowerUp] Speed boost (cosmetic)');
         break;
     }
@@ -258,6 +319,7 @@ export class GameCanvasComponent implements AfterViewInit, OnInit, OnDestroy {
   private updateBulletArray(bullets: Bullet[], isLocal: boolean): Bullet[] {
     const tiles = this.mapStore.tiles();
     const tileSize = this.mapStore.tileSize();
+    const remotePlayers = isLocal ? this.playersStore.remotePlayers() : [];
 
     for (const bullet of bullets) {
       if (!bullet.active) continue;
@@ -272,6 +334,22 @@ export class GameCanvasComponent implements AfterViewInit, OnInit, OnDestroy {
       if (this.collisionService.isOutOfBounds(bullet.position.x, bullet.position.y)) {
         bullet.active = false;
         continue;
+      }
+
+      if (isLocal) {
+        for (const remotePlayer of remotePlayers) {
+          if (this.collisionService.checkBulletTankCollision(
+            bullet.position.x, bullet.position.y,
+            remotePlayer.position.x, remotePlayer.position.y
+          )) {
+            bullet.active = false;
+            const damage = 25;
+            this.gameStore.incrementScore(100);
+            this.gameService.reportCollision(remotePlayer.id, damage);
+            break;
+          }
+        }
+        if (!bullet.active) continue;
       }
 
       const collision = this.collisionService.checkBulletTileCollision(
@@ -307,26 +385,90 @@ export class GameCanvasComponent implements AfterViewInit, OnInit, OnDestroy {
     const ctx = this.canvasRef.nativeElement.getContext('2d');
     if (!ctx) return;
 
-    this.renderingService.clearCanvas(ctx);
-    this.renderingService.drawMap(ctx, this.mapStore.tiles(), this.mapStore.tileSize());
+    const theme = this.mapStore.currentTheme();
+    const canvasW = ctx.canvas.width;
+    const canvasH = ctx.canvas.height;
 
-    // Dibujar power-ups activos (recibidos via MQTT)
+    ctx.fillStyle = theme.background;
+    ctx.fillRect(0, 0, canvasW, canvasH);
+
+    const mapLogicalSize = CANVAS_WIDTH;
+    const scale = Math.floor(Math.min(canvasW, canvasH) * 0.92 / mapLogicalSize * 10) / 10;
+    const scaledMapSize = mapLogicalSize * scale;
+
+    const offsetX = Math.floor((canvasW - scaledMapSize) / 2);
+    const offsetY = Math.floor((canvasH - scaledMapSize) / 2);
+
+    ctx.save();
+    ctx.translate(offsetX, offsetY);
+    ctx.scale(scale, scale);
+
+    this.renderingService.drawMap(ctx, this.mapStore.tiles(), this.mapStore.tileSize(), theme);
+
     for (const pu of this.mqttStore.activePowerUps().filter((p) => p.active)) {
       this.drawPowerUp(ctx, pu);
     }
 
     for (const player of this.playersStore.remotePlayers()) {
-      this.renderingService.drawRemoteTank(ctx, player);
+      this.renderingService.drawRemoteTank(ctx, player, theme);
     }
 
-    this.renderingService.drawLocalTank(ctx, this.tank);
-    this.renderingService.drawBullets(ctx, this.bullets);
-    this.renderingService.drawBullets(ctx, this.remoteBullets);
+    this.renderingService.drawLocalTank(ctx, this.tank, theme);
+    this.renderingService.drawBullets(ctx, this.bullets, theme.bullet);
+    this.renderingService.drawBullets(ctx, this.remoteBullets, theme.bullet);
+
+    ctx.restore();
+
+    this.drawHUD(ctx, theme);
+  }
+
+  private drawHUD(ctx: CanvasRenderingContext2D, theme: MapTheme): void {
+    const health = this.gameStore.health();
+    const score = this.gameStore.score();
+    const ammo = this.gameStore.ammunition();
+    const status = this.gameStore.playerStatus();
+
+    ctx.save();
+
+    const barW = 150;
+    const barH = 14;
+    const barX = 10;
+    const barY = 10;
+    ctx.fillStyle = '#333';
+    ctx.fillRect(barX, barY, barW, barH);
+    const hpColor = health > 60 ? '#00cc44' : health > 30 ? '#ffaa00' : '#cc0000';
+    ctx.fillStyle = hpColor;
+    ctx.fillRect(barX, barY, (health / 100) * barW, barH);
+    ctx.strokeStyle = '#000';
+    ctx.strokeRect(barX, barY, barW, barH);
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 10px monospace';
+    ctx.textAlign = 'left';
+    ctx.fillText(`HP: ${health}`, barX + 4, barY + 11);
+
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 12px monospace';
+    ctx.fillText(`Score: ${score}`, barX, barY + 32);
+    ctx.fillText(`Ammo: ${ammo}`, barX, barY + 48);
+
+    if (status === 'dead') {
+      ctx.fillStyle = 'rgba(0,0,0,0.6)';
+      ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+      ctx.fillStyle = '#ff4444';
+      ctx.font = 'bold 48px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText('YOU DIED', ctx.canvas.width / 2, ctx.canvas.height / 2);
+      ctx.fillStyle = '#aaa';
+      ctx.font = '18px monospace';
+      ctx.fillText(`Final Score: ${score}`, ctx.canvas.width / 2, ctx.canvas.height / 2 + 40);
+    }
+
+    ctx.restore();
   }
 
   private drawPowerUp(ctx: CanvasRenderingContext2D, pu: PowerUpEvent): void {
     const color = this.POWERUP_COLORS[pu.type] ?? '#ffffff';
-    const pulse = 0.7 + 0.3 * Math.sin(Date.now() / 300); // efecto pulsante
+    const pulse = 0.7 + 0.3 * Math.sin(Date.now() / 300);
 
     ctx.save();
     ctx.globalAlpha = pulse;
@@ -335,7 +477,6 @@ export class GameCanvasComponent implements AfterViewInit, OnInit, OnDestroy {
     ctx.arc(pu.x + POWERUP_SIZE / 2, pu.y + POWERUP_SIZE / 2, POWERUP_SIZE / 2, 0, Math.PI * 2);
     ctx.fill();
 
-    // Letra identificadora
     ctx.globalAlpha = 1;
     ctx.fillStyle = '#000';
     ctx.font = 'bold 10px monospace';
@@ -345,3 +486,4 @@ export class GameCanvasComponent implements AfterViewInit, OnInit, OnDestroy {
     ctx.restore();
   }
 }
+

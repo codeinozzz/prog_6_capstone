@@ -45,7 +45,6 @@ export type MqttEventType =
   | 'game_end'
   | 'chat';
 
-// Medición de latencia para benchmarking
 export interface LatencySample {
   topic: string;
   sentAt: number;

@@ -15,14 +15,12 @@ export class MqttService implements OnDestroy {
   private client: MqttClient | null = null;
   private currentRoomId: string | null = null;
 
-  // Subjects para cada tipo de evento
   readonly powerUpSpawned$ = new Subject<PowerUpEvent>();
   readonly powerUpCollected$ = new Subject<PowerUpCollectedEvent>();
   readonly collision$ = new Subject<CollisionEvent>();
   readonly gameEnd$ = new Subject<GameEndEvent>();
   readonly chatMessage$ = new Subject<ChatMqttEvent>();
 
-  // Benchmarking: muestras de latencia MQTT
   readonly latencySamples: LatencySample[] = [];
   private readonly BROKER_WS = 'ws://localhost:8083/mqtt';
   private readonly TOPIC_PREFIX = 'battletanks';
@@ -61,8 +59,6 @@ export class MqttService implements OnDestroy {
     this.currentRoomId = null;
   }
 
-  // ---- Publicar eventos desde el frontend ----
-
   publishCollision(roomId: string, attackerId: string, victimId: string, damage: number): void {
     const payload: CollisionEvent = {
       attackerId,
@@ -79,9 +75,6 @@ export class MqttService implements OnDestroy {
     this.publish(`${this.TOPIC_PREFIX}/room/${roomId}/powerup/collected`, payload, 1);
   }
 
-  // ---- Benchmarking ----
-
-  /** Mide la latencia publicando un mensaje con timestamp y esperando su recepción */
   sendBenchmarkPing(roomId: string): void {
     const topic = `${this.TOPIC_PREFIX}/room/${roomId}/benchmark`;
     const sentAt = Date.now();
@@ -104,8 +97,6 @@ export class MqttService implements OnDestroy {
       samples: latencies.length,
     };
   }
-
-  // ---- Internals ----
 
   private subscribeToRoom(roomId: string): void {
     if (!this.client) return;
@@ -150,7 +141,6 @@ export class MqttService implements OnDestroy {
       } else if (topic.endsWith('/chat')) {
         this.chatMessage$.next(payload as ChatMqttEvent);
       } else if (topic.endsWith('/benchmark')) {
-        // Medir latencia round-trip
         const receivedAt = Date.now();
         const sentAt: number = payload.sentAt ?? receivedAt;
         const sample: LatencySample = {
@@ -160,7 +150,6 @@ export class MqttService implements OnDestroy {
           latencyMs: receivedAt - sentAt,
         };
         this.latencySamples.push(sample);
-        // Mantener últimas 100 muestras
         if (this.latencySamples.length > 100) this.latencySamples.shift();
       }
     } catch (e) {

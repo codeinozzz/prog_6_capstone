@@ -155,6 +155,11 @@
   gap: 16px;
   padding: 8px;
   border-bottom: 1px solid #003300;
+
+  &--inprogress {
+    border-bottom-color: #553300;
+    background: rgba(255, 100, 0, 0.05);
+  }
 }
 
 .waiting-room__room-name {
@@ -167,7 +172,11 @@
 
 .waiting-room__room-status {
   color: #006600;
-  font-size: 12px;
+
+  &--inprogress {
+    color: #ff8800;
+    font-size: 12px;
+  }
 }
 
 .waiting-room__chat {
@@ -231,4 +240,76 @@
   padding: 10px;
   border-radius: 4px;
   margin-bottom: 10px;
+}
+
+.waiting-room__leaderboard {
+  margin-bottom: 24px;
+
+  h2 {
+    font-size: 18px;
+    margin-bottom: 8px;
+  }
+}
+
+.leaderboard__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: monospace;
+  font-size: 14px;
+
+  th {
+    text-align: left;
+    padding: 6px 10px;
+    border-bottom: 1px solid #00ff00;
+    color: #00cc00;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
+  td {
+    padding: 6px 10px;
+    border-bottom: 1px solid #002200;
+    color: #00dd00;
+  }
+}
+
+.leaderboard__row--top td {
+  color: #ffd700;
+  font-weight: bold;
+}
+
+.leaderboard__username {
+  color: #00ff00 !important;
+}
+
+.leaderboard__victories {
+  color: #ffaa00 !important;
+  font-weight: bold;
+}
+
+.map-badge {
+  padding: 3px 10px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-family: monospace;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  font-weight: bold;
+
+  &--desert {
+    background: #c2955a;
+    color: #3a1a00;
+  }
+
+  &--forest {
+    background: #2d5a1b;
+    color: #d0ffc0;
+  }
+
+  &--night_city {
+    background: #0a0a2a;
+    color: #88aaff;
+    border: 1px solid #334;
+  }
 }

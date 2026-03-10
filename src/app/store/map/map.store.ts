@@ -1,9 +1,12 @@
-import { signalStore, withState, withMethods, patchState } from '@ngrx/signals';
+import { computed } from '@angular/core';
+import { signalStore, withState, withMethods, withComputed, patchState } from '@ngrx/signals';
 import { TileType } from '../../core/models/map.model';
+import { THEME_COLORS, MapTheme } from '../../features/game-canvas/constants/game.constants';
 
 export interface MapState {
   tiles: TileType[][];
   tileSize: number;
+  mapName: string;
 }
 
 const maps: Record<string, TileType[][]> = {
@@ -48,11 +51,17 @@ const maps: Record<string, TileType[][]> = {
 const initialState: MapState = {
   tiles: maps['desert'],
   tileSize: 40,
+  mapName: 'desert',
 };
 
 export const MapStore = signalStore(
   { providedIn: 'root' },
   withState(initialState),
+  withComputed((store) => ({
+    currentTheme: computed((): MapTheme =>
+      THEME_COLORS[store.mapName() as keyof typeof THEME_COLORS] ?? THEME_COLORS['desert']
+    ),
+  })),
   withMethods((store) => ({
     destroyTile: (x: number, y: number) => {
       const tiles = store.tiles();
@@ -68,11 +77,11 @@ export const MapStore = signalStore(
 
     loadMap: (mapName: string) => {
       const tiles = maps[mapName] ?? maps['desert'];
-      patchState(store, { tiles });
+      patchState(store, { tiles, mapName });
     },
 
     resetMap: () => {
-      patchState(store, { tiles: maps['desert'] });
+      patchState(store, { tiles: maps['desert'], mapName: 'desert' });
     },
   }))
 );

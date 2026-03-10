@@ -18,6 +18,13 @@ interface RoomHistoryEvent {
   timestamp: number;
 }
 
+interface LeaderboardEntry {
+  username: string;
+  victories: number;
+  totalScore: number;
+  gamesPlayed: number;
+}
+
 @Component({
   selector: 'app-waiting-room',
   standalone: true,
@@ -41,6 +48,7 @@ export class WaitingRoomComponent implements OnInit, OnDestroy {
   readonly chatMessages = this.playersStore.chatMessages;
 
   rooms: RoomResponse[] = [];
+  leaderboard: LeaderboardEntry[] = [];
   newRoomName = '';
   selectedMap = 'desert';
   errorMessage = '';
@@ -54,6 +62,7 @@ export class WaitingRoomComponent implements OnInit, OnDestroy {
 
   private gameStartedSub: Subscription | null = null;
   private historySub: Subscription | null = null;
+  private refreshInterval: ReturnType<typeof setInterval> | null = null;
 
   @Output() playerJoined = new EventEmitter<Player>();
 
@@ -72,21 +81,29 @@ export class WaitingRoomComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.playersStore.connect();
     this.loadRooms();
+    this.loadLeaderboard();
 
     this.gameStartedSub = this.playersStore.onGameStarted().subscribe((mapName) => {
       this.isNavigatingToGame = true;
       this.router.navigate(['/game'], { queryParams: { map: mapName } });
     });
 
-    // Escuchar historial enviado por SignalR cuando el jugador se une
     this.historySub = this.gameService.onRoomHistory().subscribe((history) => {
       this.roomHistory = history ?? [];
     });
+
+    this.refreshInterval = setInterval(() => {
+      if (!this.currentRoom) {
+        this.loadRooms();
+        this.loadLeaderboard();
+      }
+    }, 4000);
   }
 
   ngOnDestroy(): void {
     this.gameStartedSub?.unsubscribe();
     this.historySub?.unsubscribe();
+    if (this.refreshInterval) clearInterval(this.refreshInterval);
 
     if (this.currentRoom && !this.isNavigatingToGame) {
       this.roomService.leaveRoom(this.currentRoom.id).subscribe();
@@ -107,6 +124,17 @@ export class WaitingRoomComponent implements OnInit, OnDestroy {
     });
   }
 
+  loadLeaderboard(): void {
+    this.http.get<{ data: LeaderboardEntry[] }>('http://localhost:5174/api/ranking?pageSize=10&sortBy=victories')
+      .subscribe({
+        next: (res) => {
+          this.leaderboard = res.data ?? [];
+          this.cdr.markForCheck();
+        },
+        error: () => console.warn('[Leaderboard] Could not load rankings')
+      });
+  }
+
   createRoom(): void {
     if (!this.newRoomName.trim() || this.loading) return;
     this.loading = true;
@@ -120,6 +148,8 @@ export class WaitingRoomComponent implements OnInit, OnDestroy {
         this.isHost = true;
         this.newRoomName = '';
         localStorage.setItem('currentRoomId', room.id.toString());
+        localStorage.setItem('isHost', 'true');
+        this.gameService.setRoom(room.id.toString());
         this.loadRoomHistory(room.id.toString());
         this.mqttStore.connectToRoom(room.id.toString());
         this.cdr.markForCheck();
@@ -139,6 +169,8 @@ export class WaitingRoomComponent implements OnInit, OnDestroy {
         this.currentRoom = room;
         this.isHost = false;
         localStorage.setItem('currentRoomId', room.id.toString());
+        localStorage.setItem('isHost', 'false');
+        this.gameService.setRoom(room.id.toString());
         this.loadRoomHistory(room.id.toString());
         this.mqttStore.connectToRoom(room.id.toString());
         this.cdr.markForCheck();
@@ -197,7 +229,6 @@ export class WaitingRoomComponent implements OnInit, OnDestroy {
     this.messageText = '';
   }
 
-  /** Cargar historial de Redis para la sala */
   private loadRoomHistory(roomId: string): void {
     this.http.get<RoomHistoryEvent[]>(`http://localhost:5174/api/history/${roomId}?count=20`)
       .subscribe({
@@ -206,7 +237,6 @@ export class WaitingRoomComponent implements OnInit, OnDestroy {
       });
   }
 
-  /** Formatea el payload del historial para mostrar */
   formatHistoryPayload(event: RoomHistoryEvent): string {
     try {
       const obj = JSON.parse(event.payload);

@@ -33,27 +33,65 @@
       }
       <ul class="waiting-room__list">
         @for (room of rooms; track room.id) {
-          <li class="waiting-room__room-item">
+          <li class="waiting-room__room-item" [class.waiting-room__room-item--inprogress]="room.status === 'InProgress'">
             <span class="waiting-room__room-name">{{ room.roomName }}</span>
+            <span class="map-badge" [class]="'map-badge--' + room.mapName">{{ room.mapName }}</span>
             <span class="waiting-room__room-players">{{ room.currentPlayers }}/{{ room.maxPlayers }}</span>
-            <span class="waiting-room__room-status">{{ room.status }}</span>
-            <button class="waiting-room__button" (click)="joinRoom(room)" [disabled]="loading">Join</button>
+            <span class="waiting-room__room-status" [class.waiting-room__room-status--inprogress]="room.status === 'InProgress'">
+              {{ room.status === 'InProgress' ? '🎮 In Progress' : room.status }}
+            </span>
+            <button class="waiting-room__button" (click)="joinRoom(room)" [disabled]="loading">
+              {{ room.status === 'InProgress' ? 'Join Game' : 'Join' }}
+            </button>
             <button class="waiting-room__button waiting-room__button--danger" (click)="deleteRoom(room.id)" [disabled]="loading">Delete</button>
           </li>
         }
       </ul>
+    </div>
+
+    <!-- Leaderboard global de victorias -->
+    <div class="waiting-room__leaderboard">
+      <h2>Leaderboard</h2>
+      @if (leaderboard.length === 0) {
+        <p class="waiting-room__empty">No data yet</p>
+      } @else {
+        <table class="leaderboard__table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Player</th>
+              <th>Victories</th>
+              <th>Score</th>
+              <th>Games</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (entry of leaderboard; track entry.username; let i = $index) {
+              <tr [class.leaderboard__row--top]="i === 0">
+                <td>{{ i + 1 }}</td>
+                <td class="leaderboard__username">{{ entry.username }}</td>
+                <td class="leaderboard__victories">{{ entry.victories }}</td>
+                <td>{{ entry.totalScore }}</td>
+                <td>{{ entry.gamesPlayed }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      }
     </div>
   } @else {
     <!-- PHASE B: Lobby (inside a room) -->
     <div class="waiting-room__lobby">
       <div class="waiting-room__lobby-header">
         <h2>{{ currentRoom.roomName }}</h2>
-        <span class="waiting-room__lobby-map">Map: {{ currentRoom.mapName ?? selectedMap }}</span>
+        <span class="map-badge" [class]="'map-badge--' + (currentRoom.mapName ?? selectedMap)">
+          {{ currentRoom.mapName ?? selectedMap }}
+        </span>
         <button class="waiting-room__button" (click)="leaveRoom()">Leave</button>
       </div>
 
       <div class="waiting-room__players">
-        <h3>Players Connected</h3>
+        <h3>Players Connected ({{ players().length }}/{{ currentRoom.maxPlayers }})</h3>
         <ul class="waiting-room__list">
           @for (player of players(); track player.id) {
             <li class="waiting-room__player-item">
@@ -62,6 +100,9 @@
                 <span class="waiting-room__player-you">(You)</span>
               }
             </li>
+          }
+          @if (players().length === 0) {
+            <li class="waiting-room__player-item waiting-room__waiting-text">Waiting for players...</li>
           }
         </ul>
       </div>

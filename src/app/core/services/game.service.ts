@@ -20,6 +20,9 @@ export class GameService {
   private readonly existingPlayersSubject = new Subject<{ playerId: string; playerName: string; x: number; y: number }[]>();
   private readonly bulletFiredSubject = new Subject<{ playerId: string; x: number; y: number; direction: string }>();
   private readonly tileDestroyedSubject = new Subject<{ tileX: number; tileY: number }>();
+  private readonly playerDiedSubject = new Subject<{ victimId: string; victimName: string; killerId: string; killerName: string }>();
+  private readonly playerHitSubject = new Subject<{ attackerId: string; damage: number }>();
+  private readonly initialPowerUpsSubject = new Subject<any[]>();
 
   private localPlayerId: string | null = null;
 
@@ -76,6 +79,11 @@ export class GameService {
       .catch(err => console.error('[SignalR] LeaveRoom error:', err));
   }
 
+  setRoom(roomId: string): void {
+    this.connection.invoke('SetRoom', roomId)
+      .catch(err => console.error('[SignalR] SetRoom error:', err));
+  }
+
   startGame(mapName: string): void {
     this.connection.invoke('StartGame', mapName)
       .catch(err => console.error('[SignalR] StartGame error:', err));
@@ -101,9 +109,27 @@ export class GameService {
       .catch(err => console.error('[SignalR] ReportCollision error:', err));
   }
 
-  endGame(winnerId: string, winnerName: string): void {
-    this.connection.invoke('EndGame', winnerId, winnerName)
+  endGame(winnerId: string, winnerName: string, finalScore = 0): void {
+    this.connection.invoke('EndGame', winnerId, winnerName, finalScore)
       .catch(err => console.error('[SignalR] EndGame error:', err));
+  }
+
+  playerDied(victimId: string, victimName: string, killerId: string, killerName: string): void {
+    this.connection.invoke('PlayerDied', victimId, victimName, killerId, killerName)
+      .catch(err => console.error('[SignalR] PlayerDied error:', err));
+  }
+
+  submitScore(playerName: string, points: number): void {
+    this.connection.invoke('SubmitScore', playerName, points)
+      .catch(err => console.error('[SignalR] SubmitScore error:', err));
+  }
+
+  onPlayerDied(): Observable<{ victimId: string; victimName: string; killerId: string; killerName: string }> {
+    return this.playerDiedSubject.asObservable();
+  }
+
+  onPlayerHit(): Observable<{ attackerId: string; damage: number }> {
+    return this.playerHitSubject.asObservable();
   }
 
   onRoomHistory(): Observable<any[]> {
@@ -152,11 +178,45 @@ export class GameService {
     return this.tileDestroyedSubject.asObservable();
   }
 
+  onInitialPowerUps(): Observable<any[]> {
+    return this.initialPowerUpsSubject.asObservable();
+  }
+
   getLocalPlayerId(): string | null {
     return this.localPlayerId;
   }
 
+  onConnectionLost(): Observable<void> {
+    return new Observable(observer => {
+      this.connection.onclose(() => observer.next());
+    });
+  }
+
+  onReconnected(): Observable<string | null> {
+    return new Observable(observer => {
+      this.connection.onreconnected((connectionId) => observer.next(connectionId ?? null));
+    });
+  }
+
   private registerHandlers(): void {
+    this.connection.onclose((error) => {
+      this.connectionSubject.next(false);
+      this.localPlayerId = null;
+      if (error) console.error('[SignalR] Connection closed with error:', error);
+      else console.log('[SignalR] Connection closed');
+    });
+
+    this.connection.onreconnected((connectionId) => {
+      this.localPlayerId = connectionId ?? this.localPlayerId;
+      this.connectionSubject.next(true);
+      console.log('[SignalR] Reconnected with ID:', this.localPlayerId);
+    });
+
+    this.connection.onreconnecting((error) => {
+      this.connectionSubject.next(false);
+      console.warn('[SignalR] Reconnecting...', error?.message ?? '');
+    });
+
     this.connection.on('ReceivePlayerMove', (playerId: string, movement: any) => {
       const receiveTimestamp = Date.now();
       const latency = receiveTimestamp - (movement.timestamp ?? receiveTimestamp);
@@ -207,6 +267,21 @@ export class GameService {
 
     this.connection.on('TileDestroyed', (tileX: number, tileY: number) => {
       this.tileDestroyedSubject.next({ tileX, tileY });
+    });
+
+    this.connection.on('PlayerDied', (victimId: string, victimName: string, killerId: string, killerName: string) => {
+      console.log(`[SignalR] PlayerDied: ${victimName} killed by ${killerName}`);
+      this.playerDiedSubject.next({ victimId, victimName, killerId, killerName });
+    });
+
+    this.connection.on('PlayerHit', (attackerId: string, damage: number) => {
+      console.log(`[SignalR] PlayerHit: ${damage} damage from ${attackerId}`);
+      this.playerHitSubject.next({ attackerId, damage });
+    });
+
+    this.connection.on('InitialPowerUps', (powerUps: any[]) => {
+      console.log(`[SignalR] InitialPowerUps received:`, powerUps);
+      this.initialPowerUpsSubject.next(powerUps);
     });
   }
 }

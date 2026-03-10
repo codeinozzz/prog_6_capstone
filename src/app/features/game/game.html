@@ -1,5 +1,4 @@
 <div class="game-container">
-  <h1 class="game-title">Battle Tanks</h1>
   <app-player-hub></app-player-hub>
 
   <div class="game-layout">
@@ -10,8 +9,8 @@
 
       <div class="game-chat__status">
         @if (isConnected()) {
-          <span class="game-chat__connected">Connected</span>
-          <span class="game-chat__players">Players: {{ (remotePlayers().length + 1) }}</span>
+          <span class="game-chat__connected">● Online</span>
+          <span class="game-chat__players">{{ remotePlayers().length + 1 }} players</span>
         } @else {
           <span class="game-chat__disconnected">Connecting...</span>
         }
@@ -23,6 +22,9 @@
             <strong>{{ msg.sender }}:</strong> {{ msg.text }}
           </p>
         }
+        @if (chatMessages().length === 0) {
+          <p class="game-chat__empty">No messages yet...</p>
+        }
       </div>
 
       <form class="game-chat__form" (ngSubmit)="sendMessage()">
@@ -30,11 +32,28 @@
           class="game-chat__input"
           name="chatMessage"
           [(ngModel)]="messageText"
-          placeholder="Type a message..."
+          placeholder="Message..."
           autocomplete="off"
         />
-        <button class="game-chat__send" type="submit">Send</button>
+        <button class="game-chat__send" type="submit">→</button>
       </form>
     </aside>
   </div>
+
+  <!-- Pantalla de ganador -->
+  @if (winner) {
+    <div class="game-winner-overlay">
+      <div class="game-winner-box">
+        @if (isLocalWinner()) {
+          <div class="game-winner-trophy">🏆</div>
+          <h1 class="game-winner-title game-winner-title--you">YOU WIN!</h1>
+        } @else {
+          <div class="game-winner-trophy">💀</div>
+          <h1 class="game-winner-title">GAME OVER</h1>
+        }
+        <p class="game-winner-name">Winner: <strong>{{ winner.name }}</strong></p>
+        <button class="game-winner-btn" (click)="dismissWinner()">Continue</button>
+      </div>
+    </div>
+  }
 </div>
