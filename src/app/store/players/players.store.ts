@@ -198,6 +198,12 @@ export const PlayersStore = signalStore(
 
     const leaveRoom = (): void => {
       gameService.leaveRoom();
+      // Clear remote players so stale room members don't persist
+      const localId = store.localPlayerId();
+      const localPlayer = localId ? store.players()[localId] : undefined;
+      patchState(store, {
+        players: localPlayer ? { [localId!]: localPlayer } : {}
+      });
     };
 
     const sendPlayerMove = (movement: MovementEvent): void => {

@@ -29,16 +29,27 @@ export class CollisionService {
   checkBulletTileCollision(
     x: number, y: number, tiles: TileType[][], tileSize: number
   ): { hit: boolean; tileX: number; tileY: number; tileType: TileType } {
-    const tileX = Math.floor(x / tileSize);
-    const tileY = Math.floor(y / tileSize);
+    const points = [
+      { px: x, py: y },
+      { px: x, py: y - BULLET_RADIUS },
+      { px: x, py: y + BULLET_RADIUS },
+      { px: x - BULLET_RADIUS, py: y },
+      { px: x + BULLET_RADIUS, py: y },
+    ];
 
-    if (tileY >= 0 && tileY < tiles.length && tileX >= 0 && tileX < tiles[0].length) {
-      const tileType = tiles[tileY][tileX];
-      if (tileType === 1 || tileType === 2) {
-        return { hit: true, tileX, tileY, tileType };
+    for (const { px, py } of points) {
+      const tileX = Math.floor(px / tileSize);
+      const tileY = Math.floor(py / tileSize);
+
+      if (tileY >= 0 && tileY < tiles.length && tileX >= 0 && tileX < tiles[0].length) {
+        const tileType = tiles[tileY][tileX];
+        if (tileType === 1 || tileType === 2) {
+          return { hit: true, tileX, tileY, tileType };
+        }
       }
     }
-    return { hit: false, tileX, tileY, tileType: 0 };
+
+    return { hit: false, tileX: Math.floor(x / tileSize), tileY: Math.floor(y / tileSize), tileType: 0 };
   }
 
   isOutOfBounds(x: number, y: number): boolean {

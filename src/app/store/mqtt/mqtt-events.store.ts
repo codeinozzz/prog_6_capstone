@@ -1,6 +1,7 @@
 import { inject } from '@angular/core';
 import { signalStore, withState, withMethods, withComputed, patchState } from '@ngrx/signals';
 import { computed } from '@angular/core';
+import { Subscription } from 'rxjs';
 import { MqttService } from '../../core/services/mqtt.service';
 import type { PowerUpEvent, LatencySample } from '../../core/models/mqtt-event.model';
 
@@ -35,64 +36,55 @@ export const MqttEventsStore = signalStore(
     }),
   })),
 
-  withMethods((store, mqttService = inject(MqttService)) => ({
-    connectToRoom(roomId: string): void {
-      mqttService.connect(roomId);
-      patchState(store, { isConnected: true, activePowerUps: [] });
+  withMethods((store, mqttService = inject(MqttService)) => {
+    let spawnedSub: Subscription | null = null;
+    let collectedSub: Subscription | null = null;
 
-      mqttService.powerUpSpawned$.subscribe((pu) => {
-        patchState(store, (s) => ({
-          activePowerUps: [...s.activePowerUps, { ...pu, active: true }],
-          lastEvent: `powerup_spawned:${pu.type}`,
-        }));
-      });
+    return {
+      connectToRoom(roomId: string): void {
+        mqttService.connect(roomId);
+        patchState(store, { isConnected: true, activePowerUps: [] });
 
-      mqttService.powerUpCollected$.subscribe((ev) => {
+        spawnedSub?.unsubscribe();
+        spawnedSub = mqttService.powerUpSpawned$.subscribe((pu) => {
+          patchState(store, (s) => ({
+            activePowerUps: [...s.activePowerUps, { ...pu, active: true }],
+            lastEvent: `powerup_spawned:${pu.type}`,
+          }));
+        });
+
+        collectedSub?.unsubscribe();
+        collectedSub = mqttService.powerUpCollected$.subscribe((ev) => {
+          patchState(store, (s) => ({
+            activePowerUps: s.activePowerUps.map((p) =>
+              p.id === ev.powerUpId ? { ...p, active: false } : p
+            ),
+            lastEvent: `powerup_collected:${ev.powerUpId}`,
+          }));
+        });
+      },
+
+      initializePowerUps(powerUps: PowerUpEvent[]): void {
+        const active = powerUps.map(pu => ({ ...pu, active: true }));
+        patchState(store, { activePowerUps: active });
+      },
+
+      disconnect(): void {
+        spawnedSub?.unsubscribe();
+        collectedSub?.unsubscribe();
+        spawnedSub = null;
+        collectedSub = null;
+        mqttService.disconnect();
+        patchState(store, { isConnected: false, activePowerUps: [] });
+      },
+
+      removePowerUp(id: string): void {
         patchState(store, (s) => ({
           activePowerUps: s.activePowerUps.map((p) =>
-            p.id === ev.powerUpId ? { ...p, active: false } : p
+            p.id === id ? { ...p, active: false } : p
           ),
-          lastEvent: `powerup_collected:${ev.powerUpId}`,
         }));
-      });
-    },
-
-    initializePowerUps(powerUps: PowerUpEvent[]): void {
-      const active = powerUps.map(pu => ({ ...pu, active: true }));
-      patchState(store, { activePowerUps: active });
-    },
-
-    disconnect(): void {
-      mqttService.disconnect();
-      patchState(store, { isConnected: false, activePowerUps: [] });
-    },
-
-    removePowerUp(id: string): void {
-      patchState(store, (s) => ({
-        activePowerUps: s.activePowerUps.map((p) =>
-          p.id === id ? { ...p, active: false } : p
-        ),
-      }));
-    },
-
-    refreshLatencySamples(): void {
-      const samples = [...mqttService.latencySamples];
-      patchState(store, { latencySamples: samples });
-    },
-
-    runBenchmark(roomId: string, iterations = 10): void {
-      let count = 0;
-      const interval = setInterval(() => {
-        mqttService.sendBenchmarkPing(roomId);
-        count++;
-        if (count >= iterations) {
-          clearInterval(interval);
-            setTimeout(() => {
-            const samples = [...mqttService.latencySamples];
-            patchState(store, { latencySamples: samples });
-          }, 200);
-        }
-      }, 50);
-    },
-  }))
+      },
+    };
+  })
 );

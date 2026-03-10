@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { Observable, Subject, BehaviorSubject, from } from 'rxjs';
+import { Observable, Subject, ReplaySubject, from } from 'rxjs';
 import { map } from 'rxjs/operators';
 import * as signalR from '@microsoft/signalr';
 import { MovementEvent } from '../models/movement.model';
@@ -11,7 +11,6 @@ import { ChatMessage } from '../models/chat-message.model';
 export class GameService {
   private connection: signalR.HubConnection;
 
-  private readonly connectionSubject = new BehaviorSubject<boolean>(false);
   private readonly movementSubject = new Subject<{ playerId: string; movement: MovementEvent }>();
   private readonly chatSubject = new Subject<ChatMessage>();
   private readonly playerJoinedSubject = new Subject<{ playerId: string; playerName: string; x: number; y: number }>();
@@ -22,7 +21,7 @@ export class GameService {
   private readonly tileDestroyedSubject = new Subject<{ tileX: number; tileY: number }>();
   private readonly playerDiedSubject = new Subject<{ victimId: string; victimName: string; killerId: string; killerName: string }>();
   private readonly playerHitSubject = new Subject<{ attackerId: string; damage: number }>();
-  private readonly initialPowerUpsSubject = new Subject<any[]>();
+  private readonly initialPowerUpsSubject = new ReplaySubject<any[]>(1);
 
   private localPlayerId: string | null = null;
 
@@ -41,7 +40,6 @@ export class GameService {
     return from(this.connection.start()).pipe(
       map(() => {
         this.localPlayerId = this.connection.connectionId ?? `player-${Date.now()}`;
-        this.connectionSubject.next(true);
         console.log('[SignalR] Connected with ID:', this.localPlayerId);
         return this.localPlayerId;
       })
@@ -50,7 +48,6 @@ export class GameService {
 
   disconnect(): void {
     this.connection.stop();
-    this.connectionSubject.next(false);
     this.localPlayerId = null;
     console.log('[SignalR] Disconnected');
   }
@@ -192,15 +189,8 @@ export class GameService {
     });
   }
 
-  onReconnected(): Observable<string | null> {
-    return new Observable(observer => {
-      this.connection.onreconnected((connectionId) => observer.next(connectionId ?? null));
-    });
-  }
-
   private registerHandlers(): void {
     this.connection.onclose((error) => {
-      this.connectionSubject.next(false);
       this.localPlayerId = null;
       if (error) console.error('[SignalR] Connection closed with error:', error);
       else console.log('[SignalR] Connection closed');
@@ -208,12 +198,10 @@ export class GameService {
 
     this.connection.onreconnected((connectionId) => {
       this.localPlayerId = connectionId ?? this.localPlayerId;
-      this.connectionSubject.next(true);
       console.log('[SignalR] Reconnected with ID:', this.localPlayerId);
     });
 
     this.connection.onreconnecting((error) => {
-      this.connectionSubject.next(false);
       console.warn('[SignalR] Reconnecting...', error?.message ?? '');
     });
 
