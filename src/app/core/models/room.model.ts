@@ -7,7 +7,3 @@ export interface RoomResponse {
   mapName?: string;
 }
 
-export interface CreateRoomRequest {
-  roomName: string;
-  mapName: string;
-}

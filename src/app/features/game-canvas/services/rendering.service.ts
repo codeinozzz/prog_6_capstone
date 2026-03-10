@@ -3,18 +3,24 @@ import { TileType } from '../../../core/models/map.model';
 import { Tank } from '../../../core/models/tank.model';
 import { Bullet } from '../../../core/models/bullet.model';
 import { Player } from '../../../core/models/player.model';
+import type { PowerUpEvent } from '../../../core/models/mqtt-event.model';
 import {
   TANK_SIZE, BULLET_RADIUS,
   MapTheme, COLORS, ROTATION_MAP
 } from '../constants/game.constants';
 
+const POWERUP_SIZE = 20;
+const POWERUP_COLORS: Record<string, string> = { ammo: '#ffcc00', health: '#00cc44', speed: '#00aaff' };
+
+export interface HudData {
+  health: number;
+  score: number;
+  ammo: number;
+  status: string;
+}
+
 @Injectable({ providedIn: 'root' })
 export class RenderingService {
-  clearCanvas(ctx: CanvasRenderingContext2D, theme: MapTheme = COLORS): void {
-    ctx.fillStyle = theme.background;
-    ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-  }
-
   drawMap(ctx: CanvasRenderingContext2D, tiles: TileType[][], tileSize: number, theme: MapTheme = COLORS): void {
     const mapW = (tiles[0]?.length ?? 10) * tileSize;
     const mapH = tiles.length * tileSize;
@@ -65,6 +71,59 @@ export class RenderingService {
       ctx.arc(bullet.position.x, bullet.position.y, BULLET_RADIUS, 0, Math.PI * 2);
       ctx.fill();
     }
+  }
+
+  drawHUD(ctx: CanvasRenderingContext2D, hud: HudData): void {
+    ctx.save();
+
+    const barW = 150, barH = 14, barX = 10, barY = 10;
+    ctx.fillStyle = '#333';
+    ctx.fillRect(barX, barY, barW, barH);
+    ctx.fillStyle = hud.health > 60 ? '#00cc44' : hud.health > 30 ? '#ffaa00' : '#cc0000';
+    ctx.fillRect(barX, barY, (hud.health / 100) * barW, barH);
+    ctx.strokeStyle = '#000';
+    ctx.strokeRect(barX, barY, barW, barH);
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 10px monospace';
+    ctx.textAlign = 'left';
+    ctx.fillText(`HP: ${hud.health}`, barX + 4, barY + 11);
+
+    ctx.font = 'bold 12px monospace';
+    ctx.fillText(`Score: ${hud.score}`, barX, barY + 32);
+    ctx.fillText(`Ammo: ${hud.ammo}`, barX, barY + 48);
+
+    if (hud.status === 'dead') {
+      ctx.fillStyle = 'rgba(0,0,0,0.6)';
+      ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+      ctx.fillStyle = '#ff4444';
+      ctx.font = 'bold 48px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText('YOU DIED', ctx.canvas.width / 2, ctx.canvas.height / 2);
+      ctx.fillStyle = '#aaa';
+      ctx.font = '18px monospace';
+      ctx.fillText(`Final Score: ${hud.score}`, ctx.canvas.width / 2, ctx.canvas.height / 2 + 40);
+    }
+
+    ctx.restore();
+  }
+
+  drawPowerUp(ctx: CanvasRenderingContext2D, pu: PowerUpEvent): void {
+    const color = POWERUP_COLORS[pu.type] ?? '#ffffff';
+    const pulse = 0.7 + 0.3 * Math.sin(Date.now() / 300);
+
+    ctx.save();
+    ctx.globalAlpha = pulse;
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.arc(pu.x + POWERUP_SIZE / 2, pu.y + POWERUP_SIZE / 2, POWERUP_SIZE / 2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = '#000';
+    ctx.font = 'bold 10px monospace';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(pu.type[0].toUpperCase(), pu.x + POWERUP_SIZE / 2, pu.y + POWERUP_SIZE / 2);
+    ctx.restore();
   }
 
   private drawTankShape(

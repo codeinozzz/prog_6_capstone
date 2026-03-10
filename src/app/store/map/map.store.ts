@@ -79,9 +79,5 @@ export const MapStore = signalStore(
       const tiles = maps[mapName] ?? maps['desert'];
       patchState(store, { tiles, mapName });
     },
-
-    resetMap: () => {
-      patchState(store, { tiles: maps['desert'], mapName: 'desert' });
-    },
   }))
 );
