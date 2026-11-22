@@ -1,26 +1,36 @@
-# Battle Tanks — Angular
+# Battle Tanks — Angular Frontend
 
-Juego multijugador con canvas, SignalStore, SignalR y MQTT. Backend en el repositorio prog_6_back.
+Multiplayer canvas game using Angular, SignalStore, SignalR and MQTT. Its backend is maintained separately in [prog_6_back](https://github.com/codeinozzz/prog_6_back).
 
-## Ejecutar
+## Requirements
 
-Requiere Node 24 y npm. Inicia primero el backend y sus servicios Docker.
+- Node.js 24 and npm.
+- Backend API running at http://localhost:5174.
+- The backend's Docker services running, including EMQX at ws://localhost:8083/mqtt.
 
-```sh
+## Install and run
+
+From this repository's root directory:
+
+```text
 npm ci
 npm start -- --port 4206
 ```
 
-Abre http://localhost:4206. La API debe responder en http://localhost:5174 y EMQX por WebSocket en ws://localhost:8083/mqtt. Registra una cuenta; usa una ventana de incógnito para el segundo jugador. Crea una sala, únete desde la segunda cuenta e inicia con la cuenta creadora.
+Open http://localhost:4206. Keep the frontend and backend terminals open. Stop the frontend with Ctrl+C.
 
-Se conservan los mapas Desert, Forest y Night City y el estilo retro del clon. Incluye chat, power-ups, perfil y ranking. SignalR aplica los impactos; MQTT transporta la notificación sin duplicar el daño. El canvas mantiene coordenadas lógicas 400×400.
+Register an account. To test multiplayer, open an incognito window and register a second account. Create a room with the first account, join it with the second and start the game as the room creator.
 
-## Verificar
+## Verification
 
-```sh
+```text
 npm run build
 npm test -- --watch=false
 npm run format:check
 ```
 
-npm run format aplica la indentación del código.
+Run `npm run format` to apply the project's formatting configuration.
+
+## Features
+
+Desert, Forest and Night City maps; movement, shooting, chat, power-ups, profile and ranking. SignalR applies hit damage once; MQTT carries notifications without applying the same damage again. The canvas keeps a logical 400×400 coordinate system.
