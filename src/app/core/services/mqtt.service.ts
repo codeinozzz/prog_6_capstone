@@ -52,7 +52,7 @@ export class MqttService implements OnDestroy {
   }
 
   disconnect(): void {
-    if (this.client?.connected) {
+    if (this.client) {
       this.client.end(true);
     }
     this.client = null;

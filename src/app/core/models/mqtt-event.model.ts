@@ -39,11 +39,7 @@ export interface PowerUpCollectedEvent {
 }
 
 export type MqttEventType =
-  | 'powerup_spawned'
-  | 'powerup_collected'
-  | 'collision'
-  | 'game_end'
-  | 'chat';
+  'powerup_spawned' | 'powerup_collected' | 'collision' | 'game_end' | 'chat';
 
 export interface LatencySample {
   topic: string;

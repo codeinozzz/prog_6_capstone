@@ -1,59 +1,26 @@
-# BattleTanksFrontend
+# Battle Tanks — Angular
 
-This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 21.0.5.
+Juego multijugador con canvas, SignalStore, SignalR y MQTT. Backend en el repositorio prog_6_back.
 
-## Development server
+## Ejecutar
 
-To start a local development server, run:
+Requiere Node 24 y npm. Inicia primero el backend y sus servicios Docker.
 
-```bash
-ng serve
+```sh
+npm ci
+npm start -- --port 4206
 ```
 
-Once the server is running, open your browser and navigate to `http://localhost:4200/`. The application will automatically reload whenever you modify any of the source files.
+Abre http://localhost:4206. La API debe responder en http://localhost:5174 y EMQX por WebSocket en ws://localhost:8083/mqtt. Registra una cuenta; usa una ventana de incógnito para el segundo jugador. Crea una sala, únete desde la segunda cuenta e inicia con la cuenta creadora.
 
-## Code scaffolding
+Se conservan los mapas Desert, Forest y Night City y el estilo retro del clon. Incluye chat, power-ups, perfil y ranking. SignalR aplica los impactos; MQTT transporta la notificación sin duplicar el daño. El canvas mantiene coordenadas lógicas 400×400.
 
-Angular CLI includes powerful code scaffolding tools. To generate a new component, run:
+## Verificar
 
-```bash
-ng generate component component-name
+```sh
+npm run build
+npm test -- --watch=false
+npm run format:check
 ```
 
-For a complete list of available schematics (such as `components`, `directives`, or `pipes`), run:
-
-```bash
-ng generate --help
-```
-
-## Building
-
-To build the project run:
-
-```bash
-ng build
-```
-
-This will compile your project and store the build artifacts in the `dist/` directory. By default, the production build optimizes your application for performance and speed.
-
-## Running unit tests
-
-To execute unit tests with the [Vitest](https://vitest.dev/) test runner, use the following command:
-
-```bash
-ng test
-```
-
-## Running end-to-end tests
-
-For end-to-end (e2e) testing, run:
-
-```bash
-ng e2e
-```
-
-Angular CLI does not come with an end-to-end testing framework by default. You can choose one that suits your needs.
-
-## Additional Resources
-
-For more information on using the Angular CLI, including detailed command references, visit the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.
+npm run format aplica la indentación del código.

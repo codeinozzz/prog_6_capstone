@@ -9,31 +9,37 @@ export class AuthService {
   private http = inject(HttpClient);
 
   register(username: string, email: string, password: string): Observable<AuthResponse> {
-    return this.http.post<AuthResponse>(`${this.API_URL}/register`, {
-      username,
-      email,
-      password
-    }).pipe(
-      tap(response => {
-        localStorage.setItem('auth_token', response.token);
-        localStorage.setItem('username', response.username);
+    return this.http
+      .post<AuthResponse>(`${this.API_URL}/register`, {
+        username,
+        email,
+        password,
       })
-    );
+      .pipe(
+        tap((response) => {
+          localStorage.setItem('auth_token', response.token);
+          localStorage.setItem('username', response.username);
+        }),
+      );
   }
 
   login(username: string, password: string): Observable<AuthResponse> {
-    return this.http.post<AuthResponse>(`${this.API_URL}/login`, {
-      username,
-      password
-    }).pipe(
-      tap(response => {
-        localStorage.setItem('auth_token', response.token);
-        localStorage.setItem('username', response.username);
+    return this.http
+      .post<AuthResponse>(`${this.API_URL}/login`, {
+        username,
+        password,
       })
-    );
+      .pipe(
+        tap((response) => {
+          localStorage.setItem('auth_token', response.token);
+          localStorage.setItem('username', response.username);
+        }),
+      );
   }
 
   logout(): void {
+    if (this.getToken())
+      this.http.post(`${this.API_URL}/logout`, {}).subscribe({ error: () => {} });
     localStorage.removeItem('auth_token');
     localStorage.removeItem('username');
   }
@@ -43,7 +49,13 @@ export class AuthService {
   }
 
   isAuthenticated(): boolean {
-    return !!localStorage.getItem('auth_token');
+    const token = this.getToken();
+    if (!token) return false;
+    try {
+      return JSON.parse(atob(token.split('.')[1])).exp * 1000 > Date.now();
+    } catch {
+      return false;
+    }
   }
 
   getToken(): string | null {

@@ -8,6 +8,9 @@ import { ChatMessage } from '../models/chat-message.model';
 class MockHubConnection {
   connectionId = 'mock-connection-id';
   state = 'Connected';
+  onclose = vi.fn();
+  onreconnected = vi.fn();
+  onreconnecting = vi.fn();
   handlers: Record<string, Function> = {};
 
   start = vi.fn().mockResolvedValue(undefined);
@@ -28,14 +31,18 @@ let mockHubConnection: MockHubConnection;
 vi.mock('@microsoft/signalr', () => {
   return {
     HubConnectionBuilder: class {
-      withUrl() { return this; }
-      withAutomaticReconnect() { return this; }
+      withUrl() {
+        return this;
+      }
+      withAutomaticReconnect() {
+        return this;
+      }
       build() {
         mockHubConnection = new MockHubConnection();
         return mockHubConnection;
       }
     },
-    HubConnectionState: { Connected: 'Connected' }
+    HubConnectionState: { Connected: 'Connected' },
   };
 });
 
@@ -74,14 +81,14 @@ describe('GameService', () => {
       playerId: 'test-player',
       position: { x: 100, y: 100 },
       direction: 'up',
-      timestamp: Date.now()
+      timestamp: Date.now(),
     };
 
     service.sendPlayerMove(movement);
     expect(mockHubConnection.invoke).toHaveBeenCalledWith(
       'SendPlayerMove',
       'test-player',
-      expect.objectContaining({ position: { x: 100, y: 100 }, direction: 'up' })
+      expect.objectContaining({ position: { x: 100, y: 100 }, direction: 'up' }),
     );
   });
 
@@ -92,7 +99,14 @@ describe('GameService', () => {
 
   it('should invoke JoinGame on hub', () => {
     service.joinGame('player-1', 'TestPlayer');
-    expect(mockHubConnection.invoke).toHaveBeenCalledWith('JoinGame', 'player-1', 'TestPlayer');
+    expect(mockHubConnection.invoke).toHaveBeenCalledWith(
+      'JoinGame',
+      'player-1',
+      'TestPlayer',
+      '',
+      0,
+      0,
+    );
   });
 
   it('should emit movement events when ReceivePlayerMove fires', async () => {
@@ -103,7 +117,7 @@ describe('GameService', () => {
     mockHubConnection.triggerEvent('ReceivePlayerMove', 'remote-1', {
       position: { x: 50, y: 50 },
       direction: 'left',
-      timestamp: Date.now()
+      timestamp: Date.now(),
     });
 
     const result = await movePromise;

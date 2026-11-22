@@ -1,4 +1,14 @@
-import { AfterViewInit, ChangeDetectionStrategy, Component, ElementRef, HostListener, inject, OnDestroy, OnInit, ViewChild } from '@angular/core';
+import {
+  AfterViewInit,
+  ChangeDetectionStrategy,
+  Component,
+  ElementRef,
+  HostListener,
+  inject,
+  OnDestroy,
+  OnInit,
+  ViewChild,
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Subscription } from 'rxjs';
 import { MapStore, GameStore, PlayersStore, MqttEventsStore } from '../../store';
@@ -18,7 +28,7 @@ import { CANVAS_WIDTH } from './constants/game.constants';
   imports: [CommonModule],
   templateUrl: './game-canvas.component.html',
   styleUrls: ['./game-canvas.component.scss'],
-  changeDetection: ChangeDetectionStrategy.OnPush
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class GameCanvasComponent implements AfterViewInit, OnInit, OnDestroy {
   @ViewChild('gameCanvas', { static: true })
@@ -40,13 +50,19 @@ export class GameCanvasComponent implements AfterViewInit, OnInit, OnDestroy {
   private gameEnded = false;
 
   private readonly SPAWN_POSITIONS = [
-    { x: 40,  y: 40  },
+    { x: 40, y: 40 },
     { x: 330, y: 330 },
-    { x: 40,  y: 330 },
-    { x: 330, y: 40  },
+    { x: 40, y: 330 },
+    { x: 330, y: 40 },
   ];
 
-  tank: Tank = { id: 'player-local', position: { x: 40, y: 40 }, direction: 'right', health: 100, isActive: true };
+  tank: Tank = {
+    id: 'player-local',
+    position: { x: 40, y: 40 },
+    direction: 'right',
+    health: 100,
+    isActive: true,
+  };
   bullets: Bullet[] = [];
   remoteBullets: Bullet[] = [];
   private bulletIdCounter = 0;
@@ -59,38 +75,64 @@ export class GameCanvasComponent implements AfterViewInit, OnInit, OnDestroy {
     this.gameEnded = false;
 
     const isHost = localStorage.getItem('isHost') !== 'false';
-    const spawnIndex = isHost ? 0 : Math.min(this.playersStore.remotePlayers().length, this.SPAWN_POSITIONS.length - 1);
+    const spawnIndex = isHost
+      ? 0
+      : Math.min(this.playersStore.remotePlayers().length, this.SPAWN_POSITIONS.length - 1);
     this.tank.position = { ...this.SPAWN_POSITIONS[spawnIndex] };
 
     const roomId = localStorage.getItem('currentRoomId') ?? 'default';
     this.mqttStore.connectToRoom(roomId);
 
+    const benchmarkInterval = setInterval(() => this.mqttService.sendBenchmarkPing(roomId), 5000);
     this.subs.push(
-      this.gameService.onInitialPowerUps().subscribe(pus => this.mqttStore.initializePowerUps(pus)),
+      this.gameService
+        .onInitialPowerUps()
+        .subscribe((pus) => this.mqttStore.initializePowerUps(pus)),
 
       this.gameService.onBulletFired().subscribe(({ x, y, direction }) => {
-        this.remoteBullets.push({ id: `remote-bullet-${++this.remoteBulletIdCounter}`, position: { x, y }, direction: direction as Bullet['direction'], speed: 6, active: true });
+        this.remoteBullets.push({
+          id: `remote-bullet-${++this.remoteBulletIdCounter}`,
+          position: { x, y },
+          direction: direction as Bullet['direction'],
+          speed: 6,
+          active: true,
+        });
       }),
 
-      this.gameService.onTileDestroyed().subscribe(({ tileX, tileY }) => this.mapStore.destroyTile(tileX, tileY)),
+      this.gameService
+        .onTileDestroyed()
+        .subscribe(({ tileX, tileY }) => this.mapStore.destroyTile(tileX, tileY)),
 
-      this.gameService.onPlayerHit().subscribe(({ damage }) => this.playerActions.applyDamage(damage)),
+      this.gameService
+        .onPlayerHit()
+        .subscribe(({ damage }) => this.playerActions.applyDamage(damage)),
 
       this.gameService.onPlayerDied().subscribe(({ victimId }) => {
         this.playersStore.removePlayer(victimId);
-        if (this.playersStore.remotePlayers().length === 0 && this.gameStore.playerStatus() !== 'dead' && !this.gameEnded) {
+        if (
+          this.playersStore.remotePlayers().length === 0 &&
+          this.gameStore.playerStatus() !== 'dead' &&
+          !this.gameEnded
+        ) {
           this.gameEnded = true;
-          this.gameService.endGame(this.playersStore.localPlayerId() ?? '', localStorage.getItem('username') ?? 'Player', this.gameStore.score());
+          this.gameService.endGame(
+            this.playersStore.localPlayerId() ?? '',
+            localStorage.getItem('username') ?? 'Player',
+            this.gameStore.score(),
+          );
         }
       }),
 
-      this.mqttService.collision$.subscribe(ev => {
-        if (ev.victimId === this.playersStore.localPlayerId()) this.playerActions.applyDamage(ev.damage);
-      }),
+      // MQTT carries telemetry; damage is applied once through SignalR.
+      this.mqttService.collision$.subscribe((ev) =>
+        console.debug('[MQTT] Collision telemetry', ev),
+      ),
 
-      this.mqttService.gameEnd$.subscribe(ev => console.log('[MQTT] Game over! Winner:', ev.winnerName)),
+      this.mqttService.gameEnd$.subscribe((ev) =>
+        console.log('[MQTT] Game over! Winner:', ev.winnerName),
+      ),
 
-      new Subscription(() => clearInterval(setInterval(() => this.mqttService.sendBenchmarkPing(roomId), 5000)))
+      new Subscription(() => clearInterval(benchmarkInterval)),
     );
   }
 
@@ -104,13 +146,13 @@ export class GameCanvasComponent implements AfterViewInit, OnInit, OnDestroy {
   resizeCanvas(): void {
     const canvas = this.canvasRef.nativeElement;
     const rect = canvas.getBoundingClientRect();
-    canvas.width = rect.width || canvas.offsetWidth || window.innerWidth;
-    canvas.height = rect.height || canvas.offsetHeight || window.innerHeight;
+    canvas.width = CANVAS_WIDTH;
+    canvas.height = CANVAS_WIDTH;
   }
 
   ngOnDestroy(): void {
     if (this.animationId) cancelAnimationFrame(this.animationId);
-    this.subs.forEach(s => s.unsubscribe());
+    this.subs.forEach((s) => s.unsubscribe());
     this.mqttStore.disconnect();
     console.log('[Benchmark] MQTT latency stats:', this.mqttService.getLatencyStats());
   }
@@ -119,6 +161,11 @@ export class GameCanvasComponent implements AfterViewInit, OnInit, OnDestroy {
   handleKeyDown(event: KeyboardEvent): void {
     const action = this.inputHandler.parseKeyEvent(event);
     if (!action) return;
+    if (
+      event.target instanceof HTMLElement &&
+      ['INPUT', 'TEXTAREA', 'SELECT'].includes(event.target.tagName)
+    )
+      return;
     event.preventDefault();
     if (action.type === 'move' && action.direction) {
       this.playerActions.moveTank(this.tank, action.direction);
@@ -152,7 +199,7 @@ export class GameCanvasComponent implements AfterViewInit, OnInit, OnDestroy {
     ctx.fillStyle = theme.background;
     ctx.fillRect(0, 0, canvasW, canvasH);
 
-    const scale = Math.floor(Math.min(canvasW, canvasH) * 0.92 / CANVAS_WIDTH * 10) / 10;
+    const scale = Math.floor(((Math.min(canvasW, canvasH) * 0.92) / CANVAS_WIDTH) * 10) / 10;
     const scaledSize = CANVAS_WIDTH * scale;
 
     ctx.save();
@@ -160,8 +207,10 @@ export class GameCanvasComponent implements AfterViewInit, OnInit, OnDestroy {
     ctx.scale(scale, scale);
 
     this.renderingService.drawMap(ctx, this.mapStore.tiles(), this.mapStore.tileSize(), theme);
-    for (const pu of this.mqttStore.activePowerUps().filter(p => p.active)) this.renderingService.drawPowerUp(ctx, pu);
-    for (const player of this.playersStore.remotePlayers()) this.renderingService.drawRemoteTank(ctx, player, theme);
+    for (const pu of this.mqttStore.activePowerUps().filter((p) => p.active))
+      this.renderingService.drawPowerUp(ctx, pu);
+    for (const player of this.playersStore.remotePlayers())
+      this.renderingService.drawRemoteTank(ctx, player, theme);
     this.renderingService.drawLocalTank(ctx, this.tank, theme);
     this.renderingService.drawBullets(ctx, this.bullets, theme.bullet);
     this.renderingService.drawBullets(ctx, this.remoteBullets, theme.bullet);
@@ -172,7 +221,7 @@ export class GameCanvasComponent implements AfterViewInit, OnInit, OnDestroy {
       health: this.gameStore.health(),
       score: this.gameStore.score(),
       ammo: this.gameStore.ammunition(),
-      status: this.gameStore.playerStatus()
+      status: this.gameStore.playerStatus(),
     });
   }
 }

@@ -27,7 +27,10 @@ export class CollisionService {
   }
 
   checkBulletTileCollision(
-    x: number, y: number, tiles: TileType[][], tileSize: number
+    x: number,
+    y: number,
+    tiles: TileType[][],
+    tileSize: number,
   ): { hit: boolean; tileX: number; tileY: number; tileType: TileType } {
     const points = [
       { px: x, py: y },
@@ -49,7 +52,12 @@ export class CollisionService {
       }
     }
 
-    return { hit: false, tileX: Math.floor(x / tileSize), tileY: Math.floor(y / tileSize), tileType: 0 };
+    return {
+      hit: false,
+      tileX: Math.floor(x / tileSize),
+      tileY: Math.floor(y / tileSize),
+      tileType: 0,
+    };
   }
 
   isOutOfBounds(x: number, y: number): boolean {
@@ -57,8 +65,10 @@ export class CollisionService {
   }
 
   checkBulletTankCollision(
-    bulletX: number, bulletY: number,
-    tankX: number, tankY: number
+    bulletX: number,
+    bulletY: number,
+    tankX: number,
+    tankY: number,
   ): boolean {
     const hitbox = BULLET_RADIUS + 2;
     return (

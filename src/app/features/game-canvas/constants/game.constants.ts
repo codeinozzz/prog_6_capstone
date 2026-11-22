@@ -53,7 +53,7 @@ export const THEME_COLORS = {
   },
 } as const;
 
-export type MapTheme = typeof THEME_COLORS[keyof typeof THEME_COLORS];
+export type MapTheme = (typeof THEME_COLORS)[keyof typeof THEME_COLORS];
 
 export const COLORS = THEME_COLORS['desert'];
 

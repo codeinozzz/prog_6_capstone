@@ -63,7 +63,9 @@
 .waiting-room__button--danger {
   background: #8b0000;
 
-  &:hover { background: #cc0000; }
+  &:hover {
+    background: #cc0000;
+  }
 }
 
 .waiting-room__button--start {
@@ -74,7 +76,9 @@
   text-transform: uppercase;
   letter-spacing: 1px;
 
-  &:hover { background: #ffaa33; }
+  &:hover {
+    background: #ffaa33;
+  }
 }
 
 .waiting-room__lobby {
@@ -116,7 +120,9 @@
   padding: 6px 8px;
   border-bottom: 1px solid #002200;
 
-  &:last-child { border-bottom: none; }
+  &:last-child {
+    border-bottom: none;
+  }
 }
 
 .waiting-room__player-you {

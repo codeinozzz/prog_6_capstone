@@ -19,7 +19,7 @@ const initialState: PlayersState = {
   localPlayerId: null,
   isConnected: false,
   error: null,
-  chatMessages: []
+  chatMessages: [],
 };
 
 export const PlayersStore = signalStore(
@@ -29,12 +29,12 @@ export const PlayersStore = signalStore(
     playersList: computed(() => Object.values(store.players())),
     localPlayer: computed(() => {
       const playerId = store.localPlayerId();
-      return playerId ? store.players()[playerId] ?? null : null;
+      return playerId ? (store.players()[playerId] ?? null) : null;
     }),
     remotePlayers: computed(() => {
       const localId = store.localPlayerId();
-      return Object.values(store.players()).filter(p => p.id !== localId);
-    })
+      return Object.values(store.players()).filter((p) => p.id !== localId);
+    }),
   })),
   withMethods((store, gameService = inject(GameService)) => {
     let movementSub: Subscription | null = null;
@@ -47,7 +47,7 @@ export const PlayersStore = signalStore(
 
     const addPlayer = (player: Player): void => {
       patchState(store, {
-        players: { ...store.players(), [player.id]: player }
+        players: { ...store.players(), [player.id]: player },
       });
     };
 
@@ -61,7 +61,7 @@ export const PlayersStore = signalStore(
     const updatePlayerPosition = (
       playerId: string,
       position: { x: number; y: number },
-      direction: Player['direction']
+      direction: Player['direction'],
     ): void => {
       const player = store.players()[playerId];
       const isLocal = playerId === store.localPlayerId();
@@ -73,7 +73,7 @@ export const PlayersStore = signalStore(
           position,
           direction,
           isLocal,
-          lastUpdated: Date.now()
+          lastUpdated: Date.now(),
         });
         return;
       }
@@ -81,8 +81,8 @@ export const PlayersStore = signalStore(
       patchState(store, {
         players: {
           ...store.players(),
-          [playerId]: { ...player, position, direction, lastUpdated: Date.now() }
-        }
+          [playerId]: { ...player, position, direction, lastUpdated: Date.now() },
+        },
       });
     };
 
@@ -101,7 +101,7 @@ export const PlayersStore = signalStore(
           patchState(store, {
             isConnected: true,
             localPlayerId: playerId,
-            error: null
+            error: null,
           });
 
           addPlayer({
@@ -110,17 +110,23 @@ export const PlayersStore = signalStore(
             position: { ...localInitialPosition },
             direction: 'up',
             isLocal: true,
-            lastUpdated: Date.now()
+            lastUpdated: Date.now(),
           });
 
-          gameService.joinGame(playerId, playerName, currentRoomId ?? '', localInitialPosition.x, localInitialPosition.y);
+          gameService.joinGame(
+            playerId,
+            playerName,
+            currentRoomId ?? '',
+            localInitialPosition.x,
+            localInitialPosition.y,
+          );
         },
         error: (error: Error) => {
           patchState(store, {
             isConnected: false,
-            error: error?.message ?? 'Connection failed'
+            error: error?.message ?? 'Connection failed',
           });
-        }
+        },
       });
 
       movementSub?.unsubscribe();
@@ -131,7 +137,7 @@ export const PlayersStore = signalStore(
       chatSub?.unsubscribe();
       chatSub = gameService.onChatMessage().subscribe((message) => {
         patchState(store, {
-          chatMessages: [...store.chatMessages(), message]
+          chatMessages: [...store.chatMessages(), message],
         });
       });
 
@@ -144,7 +150,7 @@ export const PlayersStore = signalStore(
             position: { x, y },
             direction: 'up',
             isLocal: false,
-            lastUpdated: Date.now()
+            lastUpdated: Date.now(),
           });
         }
       });
@@ -164,7 +170,7 @@ export const PlayersStore = signalStore(
               position: { x: p.x, y: p.y },
               direction: 'up',
               isLocal: false,
-              lastUpdated: Date.now()
+              lastUpdated: Date.now(),
             });
           }
         }
@@ -202,7 +208,7 @@ export const PlayersStore = signalStore(
       const localId = store.localPlayerId();
       const localPlayer = localId ? store.players()[localId] : undefined;
       patchState(store, {
-        players: localPlayer ? { [localId!]: localPlayer } : {}
+        players: localPlayer ? { [localId!]: localPlayer } : {},
       });
     };
 
@@ -230,7 +236,7 @@ export const PlayersStore = signalStore(
       sendPlayerMove,
       sendChatMessage,
       startGame,
-      onGameStarted
+      onGameStarted,
     };
-  })
+  }),
 );

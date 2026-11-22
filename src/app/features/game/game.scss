@@ -63,9 +63,16 @@
   padding: 4px 0;
   margin-bottom: 8px;
 
-  &::-webkit-scrollbar { width: 4px; }
-  &::-webkit-scrollbar-track { background: #0a0a0a; }
-  &::-webkit-scrollbar-thumb { background: #333; border-radius: 2px; }
+  &::-webkit-scrollbar {
+    width: 4px;
+  }
+  &::-webkit-scrollbar-track {
+    background: #0a0a0a;
+  }
+  &::-webkit-scrollbar-thumb {
+    background: #333;
+    border-radius: 2px;
+  }
 }
 
 .game-chat__message {

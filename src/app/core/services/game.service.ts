@@ -6,20 +6,37 @@ import { MovementEvent } from '../models/movement.model';
 import { ChatMessage } from '../models/chat-message.model';
 
 @Injectable({
-  providedIn: 'root'
+  providedIn: 'root',
 })
 export class GameService {
   private connection: signalR.HubConnection;
 
   private readonly movementSubject = new Subject<{ playerId: string; movement: MovementEvent }>();
   private readonly chatSubject = new Subject<ChatMessage>();
-  private readonly playerJoinedSubject = new Subject<{ playerId: string; playerName: string; x: number; y: number }>();
+  private readonly playerJoinedSubject = new Subject<{
+    playerId: string;
+    playerName: string;
+    x: number;
+    y: number;
+  }>();
   private readonly playerLeftSubject = new Subject<string>();
   private readonly gameStartedSubject = new Subject<string>();
-  private readonly existingPlayersSubject = new Subject<{ playerId: string; playerName: string; x: number; y: number }[]>();
-  private readonly bulletFiredSubject = new Subject<{ playerId: string; x: number; y: number; direction: string }>();
+  private readonly existingPlayersSubject = new Subject<
+    { playerId: string; playerName: string; x: number; y: number }[]
+  >();
+  private readonly bulletFiredSubject = new Subject<{
+    playerId: string;
+    x: number;
+    y: number;
+    direction: string;
+  }>();
   private readonly tileDestroyedSubject = new Subject<{ tileX: number; tileY: number }>();
-  private readonly playerDiedSubject = new Subject<{ victimId: string; victimName: string; killerId: string; killerName: string }>();
+  private readonly playerDiedSubject = new Subject<{
+    victimId: string;
+    victimName: string;
+    killerId: string;
+    killerName: string;
+  }>();
   private readonly playerHitSubject = new Subject<{ attackerId: string; damage: number }>();
   private readonly initialPowerUpsSubject = new ReplaySubject<any[]>(1);
 
@@ -29,7 +46,7 @@ export class GameService {
 
   constructor() {
     this.connection = new signalR.HubConnectionBuilder()
-      .withUrl(this.HUB_URL)
+      .withUrl(this.HUB_URL, { accessTokenFactory: () => localStorage.getItem('auth_token') || '' })
       .withAutomaticReconnect()
       .build();
 
@@ -42,7 +59,7 @@ export class GameService {
         this.localPlayerId = this.connection.connectionId ?? `player-${Date.now()}`;
         console.log('[SignalR] Connected with ID:', this.localPlayerId);
         return this.localPlayerId;
-      })
+      }),
     );
   }
 
@@ -54,74 +71,93 @@ export class GameService {
 
   sendPlayerMove(movement: MovementEvent): void {
     const sendTimestamp = Date.now();
-    this.connection.invoke('SendPlayerMove', movement.playerId, {
-      position: movement.position,
-      direction: movement.direction,
-      timestamp: sendTimestamp
-    }).catch(err => console.error('[SignalR] SendPlayerMove error:', err));
+    this.connection
+      .invoke('SendPlayerMove', movement.playerId, {
+        position: movement.position,
+        direction: movement.direction,
+        timestamp: sendTimestamp,
+      })
+      .catch((err) => console.error('[SignalR] SendPlayerMove error:', err));
   }
 
   sendChatMessage(sender: string, message: string): void {
-    this.connection.invoke('SendChatMessage', sender, message)
-      .catch(err => console.error('[SignalR] SendChatMessage error:', err));
+    this.connection
+      .invoke('SendChatMessage', sender, message)
+      .catch((err) => console.error('[SignalR] SendChatMessage error:', err));
   }
 
   joinGame(playerId: string, playerName: string, roomId?: string, x = 0, y = 0): void {
-    this.connection.invoke('JoinGame', playerId, playerName, roomId ?? '', x, y)
-      .catch(err => console.error('[SignalR] JoinGame error:', err));
+    this.connection
+      .invoke('JoinGame', playerId, playerName, roomId ?? '', x, y)
+      .catch((err) => console.error('[SignalR] JoinGame error:', err));
   }
 
   leaveRoom(): void {
-    this.connection.invoke('LeaveRoom')
-      .catch(err => console.error('[SignalR] LeaveRoom error:', err));
+    this.connection
+      .invoke('LeaveRoom')
+      .catch((err) => console.error('[SignalR] LeaveRoom error:', err));
   }
 
   setRoom(roomId: string): void {
-    this.connection.invoke('SetRoom', roomId)
-      .catch(err => console.error('[SignalR] SetRoom error:', err));
+    this.connection
+      .invoke('SetRoom', roomId)
+      .catch((err) => console.error('[SignalR] SetRoom error:', err));
   }
 
   startGame(mapName: string): void {
-    this.connection.invoke('StartGame', mapName)
-      .catch(err => console.error('[SignalR] StartGame error:', err));
+    this.connection
+      .invoke('StartGame', mapName)
+      .catch((err) => console.error('[SignalR] StartGame error:', err));
   }
 
   sendBulletFired(playerId: string, x: number, y: number, direction: string): void {
-    this.connection.invoke('BulletFired', playerId, x, y, direction)
-      .catch(err => console.error('[SignalR] BulletFired error:', err));
+    this.connection
+      .invoke('BulletFired', playerId, x, y, direction)
+      .catch((err) => console.error('[SignalR] BulletFired error:', err));
   }
 
   sendTileDestroyed(tileX: number, tileY: number): void {
-    this.connection.invoke('TileDestroyed', tileX, tileY)
-      .catch(err => console.error('[SignalR] TileDestroyed error:', err));
+    this.connection
+      .invoke('TileDestroyed', tileX, tileY)
+      .catch((err) => console.error('[SignalR] TileDestroyed error:', err));
   }
 
   collectPowerUp(powerUpId: string): void {
-    this.connection.invoke('CollectPowerUp', powerUpId)
-      .catch(err => console.error('[SignalR] CollectPowerUp error:', err));
+    this.connection
+      .invoke('CollectPowerUp', powerUpId)
+      .catch((err) => console.error('[SignalR] CollectPowerUp error:', err));
   }
 
   reportCollision(victimId: string, damage: number): void {
-    this.connection.invoke('ReportCollision', victimId, damage)
-      .catch(err => console.error('[SignalR] ReportCollision error:', err));
+    this.connection
+      .invoke('ReportCollision', victimId, damage)
+      .catch((err) => console.error('[SignalR] ReportCollision error:', err));
   }
 
   endGame(winnerId: string, winnerName: string, finalScore = 0): void {
-    this.connection.invoke('EndGame', winnerId, winnerName, finalScore)
-      .catch(err => console.error('[SignalR] EndGame error:', err));
+    this.connection
+      .invoke('EndGame', winnerId, winnerName, finalScore)
+      .catch((err) => console.error('[SignalR] EndGame error:', err));
   }
 
   playerDied(victimId: string, victimName: string, killerId: string, killerName: string): void {
-    this.connection.invoke('PlayerDied', victimId, victimName, killerId, killerName)
-      .catch(err => console.error('[SignalR] PlayerDied error:', err));
+    this.connection
+      .invoke('PlayerDied', victimId, victimName, killerId, killerName)
+      .catch((err) => console.error('[SignalR] PlayerDied error:', err));
   }
 
   submitScore(playerName: string, points: number): void {
-    this.connection.invoke('SubmitScore', playerName, points)
-      .catch(err => console.error('[SignalR] SubmitScore error:', err));
+    this.connection
+      .invoke('SubmitScore', playerName, points)
+      .catch((err) => console.error('[SignalR] SubmitScore error:', err));
   }
 
-  onPlayerDied(): Observable<{ victimId: string; victimName: string; killerId: string; killerName: string }> {
+  onPlayerDied(): Observable<{
+    victimId: string;
+    victimName: string;
+    killerId: string;
+    killerName: string;
+  }> {
     return this.playerDiedSubject.asObservable();
   }
 
@@ -130,13 +166,13 @@ export class GameService {
   }
 
   onRoomHistory(): Observable<any[]> {
-    return new Observable(observer => {
+    return new Observable((observer) => {
       this.connection.on('RoomHistory', (history: any[]) => observer.next(history));
     });
   }
 
   onGameOver(): Observable<{ winnerId: string; winnerName: string }> {
-    return new Observable(observer => {
+    return new Observable((observer) => {
       this.connection.on('GameOver', (winnerId: string, winnerName: string) => {
         observer.next({ winnerId, winnerName });
       });
@@ -163,7 +199,9 @@ export class GameService {
     return this.playerLeftSubject.asObservable();
   }
 
-  onExistingPlayers(): Observable<{ playerId: string; playerName: string; x: number; y: number }[]> {
+  onExistingPlayers(): Observable<
+    { playerId: string; playerName: string; x: number; y: number }[]
+  > {
     return this.existingPlayersSubject.asObservable();
   }
 
@@ -184,7 +222,7 @@ export class GameService {
   }
 
   onConnectionLost(): Observable<void> {
-    return new Observable(observer => {
+    return new Observable((observer) => {
       this.connection.onclose(() => observer.next());
     });
   }
@@ -214,7 +252,7 @@ export class GameService {
         playerId,
         position: movement.position,
         direction: movement.direction,
-        timestamp: movement.timestamp
+        timestamp: movement.timestamp,
       };
       this.movementSubject.next({ playerId, movement: movementEvent });
     });
@@ -224,10 +262,13 @@ export class GameService {
       this.chatSubject.next({ sender, text: message, timestamp: receiveTimestamp });
     });
 
-    this.connection.on('PlayerJoined', (playerId: string, playerName: string, x: number, y: number) => {
-      console.log(`[SignalR] PlayerJoined: ${playerName} (${playerId}) at (${x}, ${y})`);
-      this.playerJoinedSubject.next({ playerId, playerName, x, y });
-    });
+    this.connection.on(
+      'PlayerJoined',
+      (playerId: string, playerName: string, x: number, y: number) => {
+        console.log(`[SignalR] PlayerJoined: ${playerName} (${playerId}) at (${x}, ${y})`);
+        this.playerJoinedSubject.next({ playerId, playerName, x, y });
+      },
+    );
 
     this.connection.on('PlayerLeft', (connectionId: string) => {
       console.log(`[SignalR] PlayerLeft: ${connectionId}`);
@@ -249,18 +290,24 @@ export class GameService {
       this.existingPlayersSubject.next(players);
     });
 
-    this.connection.on('BulletFired', (playerId: string, x: number, y: number, direction: string) => {
-      this.bulletFiredSubject.next({ playerId, x, y, direction });
-    });
+    this.connection.on(
+      'BulletFired',
+      (playerId: string, x: number, y: number, direction: string) => {
+        this.bulletFiredSubject.next({ playerId, x, y, direction });
+      },
+    );
 
     this.connection.on('TileDestroyed', (tileX: number, tileY: number) => {
       this.tileDestroyedSubject.next({ tileX, tileY });
     });
 
-    this.connection.on('PlayerDied', (victimId: string, victimName: string, killerId: string, killerName: string) => {
-      console.log(`[SignalR] PlayerDied: ${victimName} killed by ${killerName}`);
-      this.playerDiedSubject.next({ victimId, victimName, killerId, killerName });
-    });
+    this.connection.on(
+      'PlayerDied',
+      (victimId: string, victimName: string, killerId: string, killerName: string) => {
+        console.log(`[SignalR] PlayerDied: ${victimName} killed by ${killerName}`);
+        this.playerDiedSubject.next({ victimId, victimName, killerId, killerName });
+      },
+    );
 
     this.connection.on('PlayerHit', (attackerId: string, damage: number) => {
       console.log(`[SignalR] PlayerHit: ${damage} damage from ${attackerId}`);

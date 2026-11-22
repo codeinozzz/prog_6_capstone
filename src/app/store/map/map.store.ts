@@ -58,8 +58,9 @@ export const MapStore = signalStore(
   { providedIn: 'root' },
   withState(initialState),
   withComputed((store) => ({
-    currentTheme: computed((): MapTheme =>
-      THEME_COLORS[store.mapName() as keyof typeof THEME_COLORS] ?? THEME_COLORS['desert']
+    currentTheme: computed(
+      (): MapTheme =>
+        THEME_COLORS[store.mapName() as keyof typeof THEME_COLORS] ?? THEME_COLORS['desert'],
     ),
   })),
   withMethods((store) => ({
@@ -69,7 +70,7 @@ export const MapStore = signalStore(
         const newTiles = tiles.map((row, rowIndex) =>
           rowIndex === y
             ? row.map((tile, colIndex) => (colIndex === x ? 0 : tile) as TileType)
-            : row
+            : row,
         );
         patchState(store, { tiles: newTiles });
       }
@@ -79,5 +80,5 @@ export const MapStore = signalStore(
       const tiles = maps[mapName] ?? maps['desert'];
       patchState(store, { tiles, mapName });
     },
-  }))
+  })),
 );

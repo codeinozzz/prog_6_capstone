@@ -57,7 +57,7 @@ export const MqttEventsStore = signalStore(
         collectedSub = mqttService.powerUpCollected$.subscribe((ev) => {
           patchState(store, (s) => ({
             activePowerUps: s.activePowerUps.map((p) =>
-              p.id === ev.powerUpId ? { ...p, active: false } : p
+              p.id === ev.powerUpId ? { ...p, active: false } : p,
             ),
             lastEvent: `powerup_collected:${ev.powerUpId}`,
           }));
@@ -65,7 +65,7 @@ export const MqttEventsStore = signalStore(
       },
 
       initializePowerUps(powerUps: PowerUpEvent[]): void {
-        const active = powerUps.map(pu => ({ ...pu, active: true }));
+        const active = powerUps.map((pu) => ({ ...pu, active: true }));
         patchState(store, { activePowerUps: active });
       },
 
@@ -80,11 +80,9 @@ export const MqttEventsStore = signalStore(
 
       removePowerUp(id: string): void {
         patchState(store, (s) => ({
-          activePowerUps: s.activePowerUps.map((p) =>
-            p.id === id ? { ...p, active: false } : p
-          ),
+          activePowerUps: s.activePowerUps.map((p) => (p.id === id ? { ...p, active: false } : p)),
         }));
       },
     };
-  })
+  }),
 );

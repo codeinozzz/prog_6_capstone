@@ -21,10 +21,18 @@ export class BulletService {
       if (!bullet.active) continue;
 
       switch (bullet.direction) {
-        case 'up':    bullet.position.y -= bullet.speed; break;
-        case 'down':  bullet.position.y += bullet.speed; break;
-        case 'left':  bullet.position.x -= bullet.speed; break;
-        case 'right': bullet.position.x += bullet.speed; break;
+        case 'up':
+          bullet.position.y -= bullet.speed;
+          break;
+        case 'down':
+          bullet.position.y += bullet.speed;
+          break;
+        case 'left':
+          bullet.position.x -= bullet.speed;
+          break;
+        case 'right':
+          bullet.position.x += bullet.speed;
+          break;
       }
 
       if (this.collisionService.isOutOfBounds(bullet.position.x, bullet.position.y)) {
@@ -34,10 +42,14 @@ export class BulletService {
 
       if (isLocal) {
         for (const remotePlayer of remotePlayers) {
-          if (this.collisionService.checkBulletTankCollision(
-            bullet.position.x, bullet.position.y,
-            remotePlayer.position.x, remotePlayer.position.y
-          )) {
+          if (
+            this.collisionService.checkBulletTankCollision(
+              bullet.position.x,
+              bullet.position.y,
+              remotePlayer.position.x,
+              remotePlayer.position.y,
+            )
+          ) {
             bullet.active = false;
             this.gameStore.incrementScore(100);
             this.gameService.reportCollision(remotePlayer.id, 25);
@@ -48,7 +60,10 @@ export class BulletService {
       }
 
       const collision = this.collisionService.checkBulletTileCollision(
-        bullet.position.x, bullet.position.y, tiles, tileSize
+        bullet.position.x,
+        bullet.position.y,
+        tiles,
+        tileSize,
       );
 
       if (collision.hit) {
@@ -63,6 +78,6 @@ export class BulletService {
       }
     }
 
-    return bullets.filter(b => b.active);
+    return bullets.filter((b) => b.active);
   }
 }

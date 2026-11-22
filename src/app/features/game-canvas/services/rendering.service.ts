@@ -5,12 +5,19 @@ import { Bullet } from '../../../core/models/bullet.model';
 import { Player } from '../../../core/models/player.model';
 import type { PowerUpEvent } from '../../../core/models/mqtt-event.model';
 import {
-  TANK_SIZE, BULLET_RADIUS,
-  MapTheme, COLORS, ROTATION_MAP
+  TANK_SIZE,
+  BULLET_RADIUS,
+  MapTheme,
+  COLORS,
+  ROTATION_MAP,
 } from '../constants/game.constants';
 
 const POWERUP_SIZE = 20;
-const POWERUP_COLORS: Record<string, string> = { ammo: '#ffcc00', health: '#00cc44', speed: '#00aaff' };
+const POWERUP_COLORS: Record<string, string> = {
+  ammo: '#ffcc00',
+  health: '#00cc44',
+  speed: '#00aaff',
+};
 
 export interface HudData {
   health: number;
@@ -21,7 +28,12 @@ export interface HudData {
 
 @Injectable({ providedIn: 'root' })
 export class RenderingService {
-  drawMap(ctx: CanvasRenderingContext2D, tiles: TileType[][], tileSize: number, theme: MapTheme = COLORS): void {
+  drawMap(
+    ctx: CanvasRenderingContext2D,
+    tiles: TileType[][],
+    tileSize: number,
+    theme: MapTheme = COLORS,
+  ): void {
     const mapW = (tiles[0]?.length ?? 10) * tileSize;
     const mapH = tiles.length * tileSize;
 
@@ -45,15 +57,25 @@ export class RenderingService {
 
   drawLocalTank(ctx: CanvasRenderingContext2D, tank: Tank, theme: MapTheme = COLORS): void {
     this.drawTankShape(
-      ctx, tank.position.x, tank.position.y, tank.direction,
-      theme.localTankBody, theme.localTankTurret, theme.localTankBarrel
+      ctx,
+      tank.position.x,
+      tank.position.y,
+      tank.direction,
+      theme.localTankBody,
+      theme.localTankTurret,
+      theme.localTankBarrel,
     );
   }
 
   drawRemoteTank(ctx: CanvasRenderingContext2D, player: Player, theme: MapTheme = COLORS): void {
     this.drawTankShape(
-      ctx, player.position.x, player.position.y, player.direction,
-      theme.remoteTankBody, theme.remoteTankTurret, theme.remoteTankBarrel
+      ctx,
+      player.position.x,
+      player.position.y,
+      player.direction,
+      theme.remoteTankBody,
+      theme.remoteTankTurret,
+      theme.remoteTankBarrel,
     );
 
     const centerX = player.position.x + TANK_SIZE / 2;
@@ -63,7 +85,11 @@ export class RenderingService {
     ctx.fillText(player.name, centerX, player.position.y - 5);
   }
 
-  drawBullets(ctx: CanvasRenderingContext2D, bullets: Bullet[], color: string = COLORS.bullet): void {
+  drawBullets(
+    ctx: CanvasRenderingContext2D,
+    bullets: Bullet[],
+    color: string = COLORS.bullet,
+  ): void {
     ctx.fillStyle = color;
     for (const bullet of bullets) {
       if (!bullet.active) continue;
@@ -76,7 +102,10 @@ export class RenderingService {
   drawHUD(ctx: CanvasRenderingContext2D, hud: HudData): void {
     ctx.save();
 
-    const barW = 150, barH = 14, barX = 10, barY = 10;
+    const barW = 150,
+      barH = 14,
+      barX = 10,
+      barY = 10;
     ctx.fillStyle = '#333';
     ctx.fillRect(barX, barY, barW, barH);
     ctx.fillStyle = hud.health > 60 ? '#00cc44' : hud.health > 30 ? '#ffaa00' : '#cc0000';
@@ -128,9 +157,12 @@ export class RenderingService {
 
   private drawTankShape(
     ctx: CanvasRenderingContext2D,
-    x: number, y: number,
+    x: number,
+    y: number,
     direction: string,
-    bodyColor: string, turretColor: string, barrelColor: string
+    bodyColor: string,
+    turretColor: string,
+    barrelColor: string,
   ): void {
     const size = TANK_SIZE;
     const centerX = x + size / 2;

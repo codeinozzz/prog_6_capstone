@@ -19,6 +19,9 @@ describe('PlayersStore', () => {
 
     const gameServiceStub = {
       connect: vi.fn().mockReturnValue(of('local-player-id')),
+      onExistingPlayers: vi.fn(() => EMPTY),
+      onConnectionLost: vi.fn(() => EMPTY),
+      onConnectionClosed: vi.fn(() => EMPTY),
       onPlayerMove: vi.fn(() => EMPTY),
       onChatMessage: vi.fn(() => chatSubject.asObservable()),
       onPlayerJoined: vi.fn(() => playerJoinedSubject.asObservable()),
@@ -26,14 +29,11 @@ describe('PlayersStore', () => {
       sendPlayerMove: vi.fn(),
       sendChatMessage: vi.fn(),
       joinGame: vi.fn(),
-      disconnect: vi.fn()
+      disconnect: vi.fn(),
     };
 
     TestBed.configureTestingModule({
-      providers: [
-        PlayersStore,
-        { provide: GameService, useValue: gameServiceStub }
-      ]
+      providers: [PlayersStore, { provide: GameService, useValue: gameServiceStub }],
     });
 
     store = TestBed.inject(PlayersStore);
@@ -46,7 +46,7 @@ describe('PlayersStore', () => {
       position: { x: 10, y: 20 },
       direction: 'up',
       isLocal: false,
-      lastUpdated: Date.now()
+      lastUpdated: Date.now(),
     };
 
     store.addPlayer(player);
@@ -60,7 +60,7 @@ describe('PlayersStore', () => {
       position: { x: 0, y: 0 },
       direction: 'up',
       isLocal: false,
-      lastUpdated: Date.now()
+      lastUpdated: Date.now(),
     };
 
     store.addPlayer(player);
@@ -78,7 +78,7 @@ describe('PlayersStore', () => {
       position: { x: 5, y: 5 },
       direction: 'down',
       isLocal: false,
-      lastUpdated: Date.now()
+      lastUpdated: Date.now(),
     };
 
     store.addPlayer(player);
@@ -105,7 +105,7 @@ describe('PlayersStore', () => {
       position: { x: 0, y: 0 },
       direction: 'up',
       isLocal: false,
-      lastUpdated: Date.now()
+      lastUpdated: Date.now(),
     });
 
     expect(store.remotePlayers().length).toBe(1);
@@ -113,7 +113,9 @@ describe('PlayersStore', () => {
   });
 
   it('should add chat message via sendChatMessage', () => {
+    store.connect();
     store.sendChatMessage('Player1', 'Hello world');
+    chatSubject.next({ sender: 'Player1', text: 'Hello world', timestamp: Date.now() });
 
     expect(store.chatMessages().length).toBe(1);
     expect(store.chatMessages()[0].sender).toBe('Player1');
@@ -124,7 +126,7 @@ describe('PlayersStore', () => {
     store.connect();
     chatSubject.next({ sender: 'Remote', text: 'Hi there', timestamp: Date.now() });
 
-    expect(store.chatMessages().some(m => m.sender === 'Remote')).toBe(true);
+    expect(store.chatMessages().some((m) => m.sender === 'Remote')).toBe(true);
   });
 
   it('should add player on PlayerJoined event', () => {
@@ -143,7 +145,7 @@ describe('PlayersStore', () => {
       position: { x: 0, y: 0 },
       direction: 'up',
       isLocal: false,
-      lastUpdated: Date.now()
+      lastUpdated: Date.now(),
     });
 
     playerLeftSubject.next('leaving-player');

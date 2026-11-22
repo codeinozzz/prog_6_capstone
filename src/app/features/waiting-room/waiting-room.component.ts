@@ -1,4 +1,14 @@
-import { ChangeDetectionStrategy, ChangeDetectorRef, Component, EventEmitter, OnDestroy, OnInit, Output, effect, inject } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  ChangeDetectorRef,
+  Component,
+  EventEmitter,
+  OnDestroy,
+  OnInit,
+  Output,
+  effect,
+  inject,
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -31,7 +41,7 @@ interface LeaderboardEntry {
   imports: [CommonModule, FormsModule],
   templateUrl: './waiting-room.component.html',
   styleUrls: ['./waiting-room.component.scss'],
-  changeDetection: ChangeDetectionStrategy.OnPush
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class WaitingRoomComponent implements OnInit, OnDestroy {
   private readonly playersStore = inject(PlayersStore);
@@ -119,19 +129,28 @@ export class WaitingRoomComponent implements OnInit, OnDestroy {
 
   loadRooms(): void {
     this.roomService.getRooms().subscribe({
-      next: (rooms) => { this.rooms = rooms; this.cdr.markForCheck(); },
-      error: () => { this.errorMessage = 'Error loading rooms'; this.cdr.markForCheck(); }
+      next: (rooms) => {
+        this.rooms = rooms;
+        this.cdr.markForCheck();
+      },
+      error: () => {
+        this.errorMessage = 'Error loading rooms';
+        this.cdr.markForCheck();
+      },
     });
   }
 
   loadLeaderboard(): void {
-    this.http.get<{ data: LeaderboardEntry[] }>('http://localhost:5174/api/ranking?pageSize=10&sortBy=victories')
+    this.http
+      .get<{ data: LeaderboardEntry[] }>(
+        'http://localhost:5174/api/ranking?pageSize=10&sortBy=victories',
+      )
       .subscribe({
         next: (res) => {
           this.leaderboard = res.data ?? [];
           this.cdr.markForCheck();
         },
-        error: () => console.warn('[Leaderboard] Could not load rankings')
+        error: () => console.warn('[Leaderboard] Could not load rankings'),
       });
   }
 
@@ -139,60 +158,65 @@ export class WaitingRoomComponent implements OnInit, OnDestroy {
     if (!this.newRoomName.trim() || this.loading) return;
     this.loading = true;
 
-    this.roomService.createRoom(this.newRoomName, this.selectedMap).pipe(
-      finalize(() => this.loading = false)
-    ).subscribe({
-      next: (room) => {
-        this.rooms = [...this.rooms, room];
-        this.currentRoom = room;
-        this.isHost = true;
-        this.newRoomName = '';
-        localStorage.setItem('currentRoomId', room.id.toString());
-        localStorage.setItem('isHost', 'true');
-        this.gameService.setRoom(room.id.toString());
-        this.loadRoomHistory(room.id.toString());
-        this.mqttStore.connectToRoom(room.id.toString());
-        this.cdr.markForCheck();
-      },
-      error: () => { this.errorMessage = 'Error creating room'; this.cdr.markForCheck(); }
-    });
+    this.roomService
+      .createRoom(this.newRoomName, this.selectedMap)
+      .pipe(finalize(() => (this.loading = false)))
+      .subscribe({
+        next: (room) => {
+          this.rooms = [...this.rooms, room];
+          this.currentRoom = room;
+          this.isHost = true;
+          this.newRoomName = '';
+          localStorage.setItem('currentRoomId', room.id.toString());
+          localStorage.setItem('isHost', 'true');
+          this.gameService.setRoom(room.id.toString());
+          this.loadRoomHistory(room.id.toString());
+          this.mqttStore.connectToRoom(room.id.toString());
+          this.cdr.markForCheck();
+        },
+        error: () => {
+          this.errorMessage = 'Error creating room';
+          this.cdr.markForCheck();
+        },
+      });
   }
 
   joinRoom(room: RoomResponse): void {
     if (this.loading) return;
     this.loading = true;
 
-    this.roomService.joinRoom(room.id).pipe(
-      finalize(() => this.loading = false)
-    ).subscribe({
-      next: () => {
-        this.currentRoom = room;
-        this.isHost = false;
-        localStorage.setItem('currentRoomId', room.id.toString());
-        localStorage.setItem('isHost', 'false');
-        this.gameService.setRoom(room.id.toString());
-        this.loadRoomHistory(room.id.toString());
-        this.mqttStore.connectToRoom(room.id.toString());
-        this.cdr.markForCheck();
-      },
-      error: (err) => {
-        if (err.status === 409) {
-          this.errorMessage = 'Room full or unavailable';
-        } else if (err.status === 401) {
-          this.errorMessage = 'Authentication required';
-        } else {
-          this.errorMessage = 'Error joining room';
-        }
-        this.cdr.markForCheck();
-      }
-    });
+    this.roomService
+      .joinRoom(room.id)
+      .pipe(finalize(() => (this.loading = false)))
+      .subscribe({
+        next: () => {
+          this.currentRoom = room;
+          this.isHost = false;
+          localStorage.setItem('currentRoomId', room.id.toString());
+          localStorage.setItem('isHost', 'false');
+          this.gameService.setRoom(room.id.toString());
+          this.loadRoomHistory(room.id.toString());
+          this.mqttStore.connectToRoom(room.id.toString());
+          this.cdr.markForCheck();
+        },
+        error: (err) => {
+          if (err.status === 409) {
+            this.errorMessage = 'Room full or unavailable';
+          } else if (err.status === 401) {
+            this.errorMessage = 'Authentication required';
+          } else {
+            this.errorMessage = 'Error joining room';
+          }
+          this.cdr.markForCheck();
+        },
+      });
   }
 
   leaveRoom(): void {
     if (this.currentRoom) {
       this.roomService.leaveRoom(this.currentRoom.id).subscribe({
         next: () => this.loadRooms(),
-        error: () => this.loadRooms()
+        error: () => this.loadRooms(),
       });
       this.playersStore.leaveRoom();
       this.mqttStore.disconnect();
@@ -212,12 +236,24 @@ export class WaitingRoomComponent implements OnInit, OnDestroy {
     if (this.loading) return;
     this.loading = true;
 
-    this.roomService.deleteRoom(roomId).pipe(
-      finalize(() => { this.loading = false; this.cdr.markForCheck(); })
-    ).subscribe({
-      next: () => { this.rooms = this.rooms.filter(r => r.id !== roomId); this.cdr.markForCheck(); },
-      error: () => { this.errorMessage = 'Error deleting room'; this.cdr.markForCheck(); }
-    });
+    this.roomService
+      .deleteRoom(roomId)
+      .pipe(
+        finalize(() => {
+          this.loading = false;
+          this.cdr.markForCheck();
+        }),
+      )
+      .subscribe({
+        next: () => {
+          this.rooms = this.rooms.filter((r) => r.id !== roomId);
+          this.cdr.markForCheck();
+        },
+        error: () => {
+          this.errorMessage = 'Error deleting room';
+          this.cdr.markForCheck();
+        },
+      });
   }
 
   sendMessage(): void {
@@ -230,10 +266,14 @@ export class WaitingRoomComponent implements OnInit, OnDestroy {
   }
 
   private loadRoomHistory(roomId: string): void {
-    this.http.get<RoomHistoryEvent[]>(`http://localhost:5174/api/history/${roomId}?count=20`)
+    this.http
+      .get<RoomHistoryEvent[]>(`http://localhost:5174/api/history/${roomId}?count=20`)
       .subscribe({
-        next: (events) => { this.roomHistory = events; this.cdr.markForCheck(); },
-        error: () => console.warn('[History] Redis not available')
+        next: (events) => {
+          this.roomHistory = events;
+          this.cdr.markForCheck();
+        },
+        error: () => console.warn('[History] Redis not available'),
       });
   }
 
@@ -241,12 +281,18 @@ export class WaitingRoomComponent implements OnInit, OnDestroy {
     try {
       const obj = JSON.parse(event.payload);
       switch (event.type) {
-        case 'chat': return `${obj.sender}: ${obj.message}`;
-        case 'powerup_spawned': return `Power-up ${obj.type} at (${Math.round(obj.x)}, ${Math.round(obj.y)})`;
-        case 'powerup_collected': return `${obj.collectorName ?? 'Player'} collected power-up`;
-        case 'collision': return `Collision: ${obj.damage} damage`;
-        case 'game_end': return `Game over! Winner: ${obj.winnerName}`;
-        default: return event.payload.slice(0, 60);
+        case 'chat':
+          return `${obj.sender}: ${obj.message}`;
+        case 'powerup_spawned':
+          return `Power-up ${obj.type} at (${Math.round(obj.x)}, ${Math.round(obj.y)})`;
+        case 'powerup_collected':
+          return `${obj.collectorName ?? 'Player'} collected power-up`;
+        case 'collision':
+          return `Collision: ${obj.damage} damage`;
+        case 'game_end':
+          return `Game over! Winner: ${obj.winnerName}`;
+        default:
+          return event.payload.slice(0, 60);
       }
     } catch {
       return event.payload.slice(0, 60);

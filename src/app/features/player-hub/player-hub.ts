@@ -9,7 +9,7 @@ import { GameStore } from '../../store';
 })
 export class PlayerHub {
   private readonly gameStore = inject(GameStore);
-  
+
   readonly health = this.gameStore.health;
   readonly score = this.gameStore.score;
   readonly ammunition = this.gameStore.ammunition;

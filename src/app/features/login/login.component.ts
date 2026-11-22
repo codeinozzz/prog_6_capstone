@@ -10,7 +10,7 @@ import { AuthService } from '../../core/services/auth.service';
   imports: [CommonModule, FormsModule],
   templateUrl: './login.component.html',
   styleUrls: ['./login.component.scss'],
-  changeDetection: ChangeDetectionStrategy.OnPush
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class LoginComponent {
   private authService = inject(AuthService);
@@ -31,12 +31,12 @@ export class LoginComponent {
     if (this.isLoginMode) {
       this.authService.login(this.username, this.password).subscribe({
         next: () => this.router.navigate(['/waiting-room']),
-        error: (err) => this.errorMessage = this.parseError(err, 'Error al iniciar sesion')
+        error: (err) => (this.errorMessage = this.parseError(err, 'Error al iniciar sesion')),
       });
     } else {
       this.authService.register(this.username, this.email, this.password).subscribe({
         next: () => this.router.navigate(['/waiting-room']),
-        error: (err) => this.errorMessage = this.parseError(err, 'Error al registrarse')
+        error: (err) => (this.errorMessage = this.parseError(err, 'Error al registrarse')),
       });
     }
   }

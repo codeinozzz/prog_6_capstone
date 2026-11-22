@@ -6,4 +6,3 @@ export interface RoomResponse {
   status: string;
   mapName?: string;
 }
-

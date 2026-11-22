@@ -6,7 +6,13 @@ import { MapStore, GameStore, PlayersStore, MqttEventsStore } from '../../../sto
 import { GameService } from '../../../core/services/game.service';
 import { MqttService } from '../../../core/services/mqtt.service';
 import { CollisionService } from './collision.service';
-import { TANK_SIZE, MOVE_SPEED, BULLET_SPEED, CANVAS_WIDTH, CANVAS_HEIGHT } from '../constants/game.constants';
+import {
+  TANK_SIZE,
+  MOVE_SPEED,
+  BULLET_SPEED,
+  CANVAS_WIDTH,
+  CANVAS_HEIGHT,
+} from '../constants/game.constants';
 import type { PowerUpEvent } from '../../../core/models/mqtt-event.model';
 
 @Injectable({ providedIn: 'root' })
@@ -24,11 +30,23 @@ export class PlayerActionsService {
 
     tank.direction = direction;
 
-    const delta = { up: { x: 0, y: -MOVE_SPEED }, down: { x: 0, y: MOVE_SPEED }, left: { x: -MOVE_SPEED, y: 0 }, right: { x: MOVE_SPEED, y: 0 } }[direction];
+    const delta = {
+      up: { x: 0, y: -MOVE_SPEED },
+      down: { x: 0, y: MOVE_SPEED },
+      left: { x: -MOVE_SPEED, y: 0 },
+      right: { x: MOVE_SPEED, y: 0 },
+    }[direction];
     const newX = tank.position.x + delta.x;
     const newY = tank.position.y + delta.y;
 
-    if (!this.collisionService.checkTankCollision(newX, newY, this.mapStore.tiles(), this.mapStore.tileSize())) {
+    if (
+      !this.collisionService.checkTankCollision(
+        newX,
+        newY,
+        this.mapStore.tiles(),
+        this.mapStore.tileSize(),
+      )
+    ) {
       tank.position.x = Math.max(0, Math.min(CANVAS_WIDTH - TANK_SIZE, newX));
       tank.position.y = Math.max(0, Math.min(CANVAS_HEIGHT - TANK_SIZE, newY));
     }
@@ -42,7 +60,7 @@ export class PlayerActionsService {
       playerId: localPlayerId,
       position: { x: tank.position.x, y: tank.position.y },
       direction: tank.direction,
-      timestamp: Date.now()
+      timestamp: Date.now(),
     };
 
     this.playersStore.updatePlayerPosition(localPlayerId, movement.position, movement.direction);
@@ -61,10 +79,18 @@ export class PlayerActionsService {
     let bulletY = tank.position.y + bulletOffset;
 
     switch (tank.direction) {
-      case 'up':    bulletY = tank.position.y - 10; break;
-      case 'down':  bulletY = tank.position.y + TANK_SIZE; break;
-      case 'left':  bulletX = tank.position.x - 10; break;
-      case 'right': bulletX = tank.position.x + TANK_SIZE; break;
+      case 'up':
+        bulletY = tank.position.y - 10;
+        break;
+      case 'down':
+        bulletY = tank.position.y + TANK_SIZE;
+        break;
+      case 'left':
+        bulletX = tank.position.x - 10;
+        break;
+      case 'right':
+        bulletX = tank.position.x + TANK_SIZE;
+        break;
     }
 
     const newBullet: Bullet = {
@@ -72,7 +98,7 @@ export class PlayerActionsService {
       position: { x: bulletX, y: bulletY },
       direction: tank.direction,
       speed: BULLET_SPEED,
-      active: true
+      active: true,
     };
 
     const localPlayerId = this.playersStore.localPlayerId();
@@ -87,8 +113,11 @@ export class PlayerActionsService {
     const localId = this.playersStore.localPlayerId() ?? '';
     const roomId = localStorage.getItem('currentRoomId') ?? 'default';
 
-    for (const pu of this.mqttStore.activePowerUps().filter(p => p.active)) {
-      if (Math.abs(tank.position.x - pu.x) < TANK_SIZE && Math.abs(tank.position.y - pu.y) < TANK_SIZE) {
+    for (const pu of this.mqttStore.activePowerUps().filter((p) => p.active)) {
+      if (
+        Math.abs(tank.position.x - pu.x) < TANK_SIZE &&
+        Math.abs(tank.position.y - pu.y) < TANK_SIZE
+      ) {
         this.applyPowerUp(pu);
         this.gameStore.incrementScore(25);
         this.mqttService.publishPowerUpCollected(roomId, pu.id, localId);
